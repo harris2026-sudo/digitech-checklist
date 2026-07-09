@@ -135,6 +135,7 @@
   .rekap-modeselect button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
 
   .day-row{display:flex;align-items:center;gap:10px;background:#fff;border-radius:8px;padding:9px 12px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,.06);}
+  .day-row[data-date]:hover{box-shadow:0 2px 6px rgba(0,0,0,.15);background:var(--hilite);}
   .day-row .d-date{width:100px;font-size:12px;font-weight:bold;color:var(--navy);}
   .day-row .d-bar{flex:1;height:8px;background:#e6ebf1;border-radius:5px;overflow:hidden;}
   .day-row .d-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--navy));border-radius:5px;}
@@ -987,7 +988,12 @@ document.getElementById('resetBtn').onclick = () => {
     refreshStatusButtons(); refreshNotes(); refreshSummary(); scheduleSave();
   }
 };
-document.getElementById('saveBtn').onclick = saveCurrent;
+document.getElementById('saveBtn').onclick = async () => {
+  await saveCurrent();
+  currentData.status = {};
+  refreshStatusButtons();
+  refreshSummary();
+};
 document.getElementById('dateInput').onchange = (e) => loadForDate(e.target.value);
 document.getElementById('shiftInput').onchange = scheduleSave;
 document.getElementById('picInput').oninput = scheduleSave;
@@ -1111,14 +1117,29 @@ function dayLabel(dateStr){
   return `${days[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}`;
 }
 
+function attachDayRowClicks(container){
+  container.querySelectorAll('.day-row[data-date]').forEach(row => {
+    row.onclick = () => {
+      const d = row.dataset.date;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('.tab[data-view="harian"]').classList.add('active');
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-harian').classList.add('active');
+      document.getElementById('dateInput').value = d;
+      loadForDate(d);
+    };
+  });
+}
+
 function renderWeekDetail(periodDates){
   const el = document.getElementById('rekapDetail');
-  el.innerHTML = '<div class="section-title">Detail Harian (Senin–Minggu)</div>' + periodDates.map(d => {
+  el.innerHTML = '<div class="section-title">Detail Harian (Senin–Minggu) · klik untuk lihat laporan lengkap</div>' + periodDates.map(d => {
     const entry = allEntriesCache[d];
     if(!entry) return `<div class="day-row empty"><div class="d-date">${dayLabel(d)}</div><div class="d-bar"></div><div class="d-pct">-</div></div>`;
     const { pct } = computeDayStats(entry);
-    return `<div class="day-row"><div class="d-date">${dayLabel(d)}</div><div class="d-bar"><div class="d-fill" style="width:${pct}%"></div></div><div class="d-pct">${pct}%</div></div>`;
+    return `<div class="day-row" data-date="${d}" style="cursor:pointer;"><div class="d-date">${dayLabel(d)}</div><div class="d-bar"><div class="d-fill" style="width:${pct}%"></div></div><div class="d-pct">${pct}%</div></div>`;
   }).join('');
+  attachDayRowClicks(el);
 }
 
 function renderMonthDetail(periodDates, ym){
@@ -1128,11 +1149,12 @@ function renderMonthDetail(periodDates, ym){
     el.innerHTML = `<div class="section-title">Detail Harian — ${ym}</div><div class="empty-note">Belum ada data tersimpan di bulan ini.</div>`;
     return;
   }
-  el.innerHTML = `<div class="section-title">Detail Harian — ${ym}</div>` + withData.map(d => {
+  el.innerHTML = `<div class="section-title">Detail Harian — ${ym} · klik untuk lihat laporan lengkap</div>` + withData.map(d => {
     const entry = allEntriesCache[d];
     const { pct } = computeDayStats(entry);
-    return `<div class="day-row"><div class="d-date">${d}</div><div class="d-bar"><div class="d-fill" style="width:${pct}%"></div></div><div class="d-pct">${pct}%</div></div>`;
+    return `<div class="day-row" data-date="${d}" style="cursor:pointer;"><div class="d-date">${d}</div><div class="d-bar"><div class="d-fill" style="width:${pct}%"></div></div><div class="d-pct">${pct}%</div></div>`;
   }).join('');
+  attachDayRowClicks(el);
 }
 
 function renderYearDetail(monthBuckets, year){
