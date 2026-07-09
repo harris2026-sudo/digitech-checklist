@@ -195,6 +195,14 @@
   .sk-vendor-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
   .sk-vendor-tabs button{flex:1;min-width:130px;padding:9px 6px;border-radius:8px;border:1.5px solid var(--hilite);background:#fff;color:var(--navy);font-weight:bold;font-size:12px;cursor:pointer;}
   .sk-vendor-tabs button.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .sk-sync-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;border-radius:10px;padding:9px 12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);font-size:12px;}
+  .sk-sync-bar #skSyncStatus{color:#667;}
+  .sk-sync-bar #skSyncStatus.ok{color:#1a7f37;font-weight:bold;}
+  .sk-sync-bar #skSyncStatus.err{color:#c0392b;font-weight:bold;}
+  .sk-sync-bar #skSyncStatus.loading{color:var(--accent);font-weight:bold;}
+  .sk-sync-bar button{background:var(--hilite);color:var(--navy);border:none;border-radius:7px;padding:7px 12px;font-weight:bold;font-size:11.5px;cursor:pointer;white-space:nowrap;}
+  .sk-sync-bar button:hover{background:#c3d7ee;}
+  .sk-sync-bar button:disabled{opacity:.5;cursor:default;}
   .sk-info{background:#fff;border-radius:10px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
   .sk-info-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;}
   .sk-info-row:last-child{margin-bottom:0;}
@@ -413,6 +421,10 @@
   <!-- ================= VIEW: SUMMARY KINERJA PJP ================= -->
   <div class="view" id="view-summarykinerja">
     <div class="sk-vendor-tabs" id="skVendorTabs"></div>
+    <div class="sk-sync-bar" id="skSyncBar">
+      <span id="skSyncStatus">—</span>
+      <button type="button" id="skSyncBtn">🔄 Sync dari Spreadsheet</button>
+    </div>
 
     <div class="sk-info">
       <div class="sk-info-row">
@@ -1466,6 +1478,90 @@ const SK_ASPECTS = [
 let skVendor = SK_VENDORS[0];
 let skData = { semester:"I", tahun:2026, pjo:"", nilai:{} };
 
+/* ---- Google Sheets auto-sync ---- */
+const SK_SHEET_ID = '1cWBr2Vpcqi8wFp14yxKDLUypshZgN5q-';
+let skSyncing = false;
+
+function skSetSyncStatus(text, cls){
+  const el = document.getElementById('skSyncStatus');
+  if(!el) return;
+  el.textContent = text;
+  el.className = cls || '';
+}
+
+async function skFetchSheetProgress(vendorName){
+  const url = `https://docs.google.com/spreadsheets/d/${SK_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(vendorName)}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const raw = await res.text();
+  const match = raw.match(/setResponse\(([\s\S]*)\);?\s*$/);
+  if(!match) throw new Error('Format respons tidak dikenali');
+  const json = JSON.parse(match[1]);
+  if(json.status === 'error'){
+    const msg = (json.errors && json.errors[0] && json.errors[0].detailed_message) || 'Sheet/tab tidak ditemukan';
+    throw new Error(msg);
+  }
+  const rows = (json.table && json.table.rows) || [];
+  const progressByAspect = {};
+  rows.forEach(row => {
+    const cells = row.c || [];
+    for(let i = 0; i < cells.length; i++){
+      const cell = cells[i];
+      if(!cell || typeof cell.v !== 'string') continue;
+      const m = cell.v.match(/^Progress\s+(\d+)\./i);
+      if(!m) continue;
+      const aspectNo = Number(m[1]);
+      // cari nilai persen di sel-sel setelahnya pada baris yang sama
+      for(let j = i + 1; j < cells.length; j++){
+        const pc = cells[j];
+        if(!pc) continue;
+        let pct = null;
+        if(typeof pc.f === 'string' && pc.f.includes('%')) pct = parseFloat(pc.f);
+        else if(typeof pc.v === 'number') pct = pc.v <= 1 ? pc.v * 100 : pc.v;
+        if(pct !== null && !isNaN(pct)){ progressByAspect[aspectNo] = Math.round(pct * 100) / 100; break; }
+      }
+      break;
+    }
+  });
+  return progressByAspect;
+}
+
+async function skSyncFromSheet(){
+  if(skSyncing) return;
+  skSyncing = true;
+  const btn = document.getElementById('skSyncBtn');
+  if(btn) btn.disabled = true;
+  skSetSyncStatus('🔄 Menyinkronkan dari Google Sheets...', 'loading');
+  try{
+    const progress = await skFetchSheetProgress(skVendor);
+    let updated = 0;
+    SK_ASPECTS.forEach(a => {
+      if(a.max === 0) return; // aspek N/A, lewati
+      if(progress[a.no] !== undefined){
+        skData.nilai[a.no] = progress[a.no];
+        updated++;
+      }
+    });
+    if(updated === 0){
+      skSetSyncStatus('⚠ Tidak ditemukan data Progress di tab spreadsheet ini.', 'err');
+    }else{
+      renderSkTable();
+      renderSkResult();
+      await saveSkData();
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2,'0');
+      const mm = String(now.getMinutes()).padStart(2,'0');
+      skSetSyncStatus(`✓ Tersinkron dari Spreadsheet (${updated} aspek) pukul ${hh}:${mm}`, 'ok');
+    }
+  }catch(e){
+    console.error('Gagal sync Google Sheets', e);
+    skSetSyncStatus('⚠ Gagal sinkronisasi otomatis. Periksa akses sheet (harus "Anyone with the link") atau koneksi internet. Nilai bisa diisi manual.', 'err');
+  }finally{
+    skSyncing = false;
+    if(btn) btn.disabled = false;
+  }
+}
+
 function skKeyFor(vendor){ return 'summaryKinerja:' + vendor; }
 
 function skPredikat(nilai){
@@ -1490,7 +1586,7 @@ function renderSkVendorTabs(){
   const el = document.getElementById('skVendorTabs');
   el.innerHTML = SK_VENDORS.map(v => `<button data-v="${v}" class="${v===skVendor?'active':''}">${v}</button>`).join('');
   el.querySelectorAll('button').forEach(btn => {
-    btn.onclick = async () => { skVendor = btn.dataset.v; await loadSkData(); renderSummaryKinerjaUI(); };
+    btn.onclick = async () => { skVendor = btn.dataset.v; await loadSkData(); renderSummaryKinerjaUI(); skSyncFromSheet(); };
   });
 }
 
@@ -1560,10 +1656,12 @@ function renderSummaryKinerjaUI(){
 document.getElementById('skSemester').onchange = scheduleSkSave;
 document.getElementById('skTahun').oninput = scheduleSkSave;
 document.getElementById('skPjo').oninput = scheduleSkSave;
+document.getElementById('skSyncBtn').onclick = skSyncFromSheet;
 
 async function renderSummaryKinerja(){
   await loadSkData();
   renderSummaryKinerjaUI();
+  skSyncFromSheet();
 }
 
 /* ---------------- INIT ---------------- */
