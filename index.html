@@ -1502,28 +1502,26 @@ async function skFetchSheetProgress(vendorName){
     throw new Error(msg);
   }
   const rows = (json.table && json.table.rows) || [];
-  const progressByAspect = {};
+  // Cari tabel ringkasan "Aspek Penilaian / Bobot Nilai / Nilai Awal" di bagian bawah sheet.
+  // Barisnya berbentuk: [ -, No, "Aspek ...", Bobot, Nilai Max, "Nilai Awal", Nilai Akhir, ... ]
+  const nilaiByAspect = {};
   rows.forEach(row => {
     const cells = row.c || [];
-    for(let i = 0; i < cells.length; i++){
-      const cell = cells[i];
-      if(!cell || typeof cell.v !== 'string') continue;
-      const m = cell.v.match(/^Progress\s+(\d+)\./i);
-      if(!m) continue;
-      const aspectNo = Number(m[1]);
-      // cari nilai persen di sel-sel setelahnya pada baris yang sama
-      for(let j = i + 1; j < cells.length; j++){
-        const pc = cells[j];
-        if(!pc) continue;
-        let pct = null;
-        if(typeof pc.f === 'string' && pc.f.includes('%')) pct = parseFloat(pc.f);
-        else if(typeof pc.v === 'number') pct = pc.v <= 1 ? pc.v * 100 : pc.v;
-        if(pct !== null && !isNaN(pct)){ progressByAspect[aspectNo] = Math.round(pct * 100) / 100; break; }
-      }
-      break;
-    }
+    const noCell = cells[1];
+    const nameCell = cells[2];
+    const nilaiCell = cells[5];
+    if(!noCell || typeof noCell.v !== 'number') return;
+    if(!nameCell || typeof nameCell.v !== 'string' || !/^Aspek\s/i.test(nameCell.v)) return;
+    const no = Math.round(noCell.v);
+    if(no < 1 || no > 7) return;
+    if(!nilaiCell || nilaiCell.v === null || nilaiCell.v === undefined) return;
+    const rawVal = String(nilaiCell.v).trim();
+    if(rawVal === '' || rawVal.toUpperCase() === 'N/A' || rawVal === '-') return;
+    const num = parseFloat(rawVal);
+    if(isNaN(num)) return;
+    nilaiByAspect[no] = Math.round(num * 100) / 100;
   });
-  return progressByAspect;
+  return nilaiByAspect;
 }
 
 async function skSyncFromSheet(){
