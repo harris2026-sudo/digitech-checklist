@@ -78,6 +78,28 @@
   .category-head{background:var(--accent);color:#fff;padding:10px 14px;font-size:13.5px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;}
   .category-head .chev{transition:transform .2s;font-size:11px;}
   .category-head.collapsed .chev{transform:rotate(-90deg);}
+  .editable-label{outline:none;border-radius:4px;padding:1px 3px;cursor:text;}
+  .category-head .editable-label:hover{background:rgba(255,255,255,.15);}
+  .category-head .editable-label:focus{background:rgba(255,255,255,.22);box-shadow:0 0 0 1.5px rgba(255,255,255,.5);cursor:text;}
+  .task-title .editable-label:hover{background:var(--hilite);}
+  .task-title .editable-label:focus{background:var(--hilite);box-shadow:0 0 0 1.5px var(--accent);}
+  .task-del-btn{background:none;border:none;color:#c0392b;font-size:10.5px;font-weight:bold;cursor:pointer;margin-left:8px;padding:2px 4px;}
+  .task-del-btn:hover{text-decoration:underline;}
+  .row-actions{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle;}
+  .row-actions button{border:none;border-radius:5px;font-size:10.5px;font-weight:bold;cursor:pointer;padding:3px 7px;font-family:Arial;}
+  .row-edit-btn{background:var(--hilite);color:var(--navy);}
+  .row-edit-btn:hover{background:#c3d7ee;}
+  .row-hapus-btn{background:var(--red-bg);color:var(--red-fg);}
+  .row-hapus-btn:hover{background:#f8b3bc;}
+  .task-title{display:flex;align-items:center;flex-wrap:wrap;}
+  .hidden-chip-bar{padding:8px 14px 12px;font-size:11.5px;}
+  .hidden-chip-bar .restore-link{color:var(--accent);font-weight:bold;cursor:pointer;text-decoration:underline;}
+  .add-task-wrap{padding:10px 14px 14px;}
+  .add-task-btn{background:var(--hilite);color:var(--navy);border:1.5px dashed var(--accent);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:bold;cursor:pointer;width:100%;text-align:left;}
+  .add-task-btn:hover{background:var(--accent);color:#fff;border-style:solid;}
+  .add-task-form{display:flex;gap:8px;margin-top:8px;}
+  .add-task-form.hidden{display:none;}
+  .add-task-form input{flex:1;border:1px solid #c7d3e0;border-radius:6px;padding:8px 10px;font-size:13px;font-family:Arial;}
   .category-body{padding:4px 0;}
   .category-body.hidden{display:none;}
 
@@ -218,7 +240,7 @@
     <h1 contenteditable="true" id="headerTitle">📋 Digitech Daily Checklist Assistant</h1>
     <p contenteditable="true" id="headerSubtitle">Site Reliability Engineer · Digital Sustainability Operation · PT Borneo Indobara</p>
     <span class="storage-badge" contenteditable="true" id="storageBadge">Site Reliability Engineer</span>
-    <div class="header-edit-hint">✏️ Klik teks di atas untuk mengedit</div>
+    <div class="header-edit-hint" contenteditable="true" id="headerRemark">Digital Sustainability Operation</div>
   </header>
 
   <div class="tabs">
@@ -505,7 +527,8 @@ const HEADER_KEY = 'app:headerConfig';
 const headerFields = {
   headerTitle: document.getElementById('headerTitle'),
   headerSubtitle: document.getElementById('headerSubtitle'),
-  storageBadge: document.getElementById('storageBadge')
+  storageBadge: document.getElementById('storageBadge'),
+  headerRemark: document.getElementById('headerRemark')
 };
 let headerSaveTimer = null;
 function scheduleHeaderSave(){ clearTimeout(headerSaveTimer); headerSaveTimer = setTimeout(saveHeaderConfig, 500); }
@@ -513,7 +536,8 @@ async function saveHeaderConfig(){
   const data = {
     title: headerFields.headerTitle.textContent,
     subtitle: headerFields.headerSubtitle.textContent,
-    badge: headerFields.storageBadge.textContent
+    badge: headerFields.storageBadge.textContent,
+    remark: headerFields.headerRemark.textContent
   };
   try{ await store.set(HEADER_KEY, JSON.stringify(data)); }
   catch(e){ console.error('Gagal menyimpan header', e); }
@@ -526,6 +550,7 @@ async function loadHeaderConfig(){
       if(data.title) headerFields.headerTitle.textContent = data.title;
       if(data.subtitle) headerFields.headerSubtitle.textContent = data.subtitle;
       if(data.badge) headerFields.storageBadge.textContent = data.badge;
+      if(data.remark) headerFields.headerRemark.textContent = data.remark;
     }
   }catch(e){ /* belum ada data tersimpan, gunakan default */ }
 }
@@ -544,6 +569,9 @@ const STRUCTURE = [
     "Upload data report tonase Under/Over ke WAG DSO",
     "Mengupload data report Redzone dari shift sebelumnya ke WAG DSO",
     "Daily report monitoring",
+    "Report RedZone",
+    "Report Monitoring Server",
+    "Report Monitoring CHP",
   ]},
   { name: "Raport Penilaian DTFE", tasks: [
     "Raport Penilaian Kinerja (Daily)",
@@ -566,6 +594,12 @@ const STRUCTURE = [
     "Checking device status di Node Exporter Full (CPU, RAM, Disk)",
     "Checking device status di Node Exporter Full IP siCantik",
     "Checking device status di PRTG",
+    "Checking status monitoring di PingPulse",
+    "Checking status aplikasi WIM",
+    "Checking status aplikasi UCan",
+    "Checking status aplikasi Famous",
+    "Checking status aplikasi USea",
+    "Checking status aplikasi Synova",
   ]},
   { name: "Request RFID", tasks: [
     "Check request RFID di web Order Form",
@@ -587,13 +621,102 @@ const STRUCTURE = [
 
 let taskIds = [];
 let taskTextMap = {};
-STRUCTURE.forEach((cat, ci) => {
-  cat.tasks.forEach((t, ti) => {
-    const id = `c${ci}_t${ti}`;
-    taskIds.push(id);
-    taskTextMap[id] = `${cat.name} — ${t}`;
+function rebuildTaskIndex(){
+  taskIds = [];
+  taskTextMap = {};
+  STRUCTURE.forEach((cat, ci) => {
+    const catName = structureLabels.categories[ci] || cat.name;
+    cat.tasks.forEach((t, ti) => {
+      const id = `c${ci}_t${ti}`;
+      const taskLabel = structureLabels.tasks[id] || t;
+      taskIds.push(id);
+      taskTextMap[id] = `${catName} — ${taskLabel}`;
+    });
+    (customTasks[ci] || []).forEach((t, xi) => {
+      const id = `c${ci}_x${xi}`;
+      const taskLabel = structureLabels.tasks[id] || t.text;
+      taskIds.push(id);
+      taskTextMap[id] = `${catName} — ${taskLabel}`;
+    });
   });
-});
+}
+
+/* ---------------- EDITABLE STRUCTURE LABELS ---------------- */
+const STRUCT_LABELS_KEY = 'app:structureLabels';
+let structureLabels = { categories: {}, tasks: {} };
+let structLabelSaveTimer = null;
+function scheduleStructLabelSave(){ clearTimeout(structLabelSaveTimer); structLabelSaveTimer = setTimeout(saveStructureLabels, 500); }
+async function saveStructureLabels(){
+  try{ await store.set(STRUCT_LABELS_KEY, JSON.stringify(structureLabels)); }
+  catch(e){ console.error('Gagal menyimpan label menu', e); }
+}
+async function loadStructureLabels(){
+  try{
+    const res = await store.get(STRUCT_LABELS_KEY);
+    if(res && res.value) structureLabels = JSON.parse(res.value);
+  }catch(e){ /* belum ada, gunakan default */ }
+  if(!structureLabels.categories) structureLabels.categories = {};
+  if(!structureLabels.tasks) structureLabels.tasks = {};
+}
+
+/* ---------------- CUSTOM (USER-ADDED) CHECKLIST ITEMS ---------------- */
+const CUSTOM_TASKS_KEY = 'app:customTasks';
+let customTasks = {}; // { [categoryIndex]: [{text}, ...] }
+async function loadCustomTasks(){
+  try{
+    const res = await store.get(CUSTOM_TASKS_KEY);
+    customTasks = (res && res.value) ? JSON.parse(res.value) : {};
+  }catch(e){ customTasks = {}; }
+}
+async function saveCustomTasks(){
+  try{ await store.set(CUSTOM_TASKS_KEY, JSON.stringify(customTasks)); }
+  catch(e){ console.error('Gagal menyimpan checklist baru', e); }
+}
+async function addCustomTask(ci, text){
+  if(!text || !text.trim()) return;
+  if(!customTasks[ci]) customTasks[ci] = [];
+  customTasks[ci].push({ text: text.trim() });
+  await saveCustomTasks();
+  rebuildTaskIndex();
+  buildUI();
+  refreshStatusButtons(); refreshNotes(); refreshSummary();
+}
+async function deleteCustomTask(ci, xi){
+  if(!customTasks[ci]) return;
+  customTasks[ci].splice(xi, 1);
+  await saveCustomTasks();
+  rebuildTaskIndex();
+  buildUI();
+  refreshStatusButtons(); refreshNotes(); refreshSummary();
+}
+
+/* ---------------- HIDE/HAPUS DEFAULT TASKS ---------------- */
+const HIDDEN_TASKS_KEY = 'app:hiddenTasks';
+let hiddenTasks = {};   // { taskId: true }
+async function loadHiddenState(){
+  try{
+    const res = await store.get(HIDDEN_TASKS_KEY);
+    hiddenTasks = (res && res.value) ? JSON.parse(res.value) : {};
+  }catch(e){ hiddenTasks = {}; }
+}
+async function saveHiddenTasks(){
+  try{ await store.set(HIDDEN_TASKS_KEY, JSON.stringify(hiddenTasks)); }
+  catch(e){ console.error('Gagal menyimpan status hapus checklist', e); }
+}
+async function hideDefaultTask(id){
+  hiddenTasks[id] = true;
+  await saveHiddenTasks();
+  buildUI();
+  refreshStatusButtons(); refreshNotes(); refreshSummary();
+}
+async function restoreCategoryHiddenTasks(ci){
+  Object.keys(hiddenTasks).forEach(id => { if(id.startsWith(`c${ci}_t`)) delete hiddenTasks[id]; });
+  await saveHiddenTasks();
+  buildUI();
+  refreshStatusButtons(); refreshNotes(); refreshSummary();
+}
+
+rebuildTaskIndex();
 
 let currentData = { status: {}, notes: {}, shift: "Shift 1", pic: "Harris" };
 let saveTimer = null;
@@ -628,54 +751,155 @@ document.querySelectorAll('.tab').forEach(tab => {
 });
 
 /* ---------------- BUILD DAILY UI ---------------- */
+function renderTaskRow(body, id, taskText, displayNum, opts){
+  opts = opts || {};
+  const taskDiv = document.createElement('div');
+  taskDiv.className = 'task';
+  const title = document.createElement('div');
+  title.className = 'task-title';
+  const numSpan = document.createElement('span');
+  numSpan.textContent = `${displayNum}. `;
+  const textSpan = document.createElement('span');
+  textSpan.contentEditable = 'true';
+  textSpan.className = 'editable-label';
+  textSpan.textContent = structureLabels.tasks[id] || taskText;
+  textSpan.addEventListener('input', () => {
+    structureLabels.tasks[id] = textSpan.textContent;
+    rebuildTaskIndex();
+    scheduleStructLabelSave();
+  });
+  textSpan.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); textSpan.blur(); } });
+  title.appendChild(numSpan);
+  title.appendChild(textSpan);
+
+  const actions = document.createElement('span');
+  actions.className = 'row-actions';
+  const editBtn = document.createElement('button');
+  editBtn.className = 'row-edit-btn';
+  editBtn.type = 'button';
+  editBtn.textContent = '✎ Edit';
+  editBtn.onclick = (e) => { e.stopPropagation(); textSpan.focus(); const r=document.createRange(); r.selectNodeContents(textSpan); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); };
+  actions.appendChild(editBtn);
+  const hapusBtn = document.createElement('button');
+  hapusBtn.className = 'row-hapus-btn';
+  hapusBtn.type = 'button';
+  hapusBtn.textContent = '🗑 Hapus';
+  hapusBtn.onclick = (e) => {
+    e.stopPropagation();
+    if(!confirm('Hapus checklist ini?')) return;
+    if(opts.custom) deleteCustomTask(opts.ci, opts.customIndex);
+    else hideDefaultTask(id);
+  };
+  actions.appendChild(hapusBtn);
+  title.appendChild(actions);
+  taskDiv.appendChild(title);
+
+  const statusRow = document.createElement('div');
+  statusRow.className = 'status-row';
+  STATUS_OPTIONS.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'status-btn';
+    btn.dataset.status = opt;
+    btn.dataset.taskId = id;
+    btn.textContent = opt;
+    btn.onclick = () => setStatus(id, opt);
+    statusRow.appendChild(btn);
+  });
+  taskDiv.appendChild(statusRow);
+
+  const note = document.createElement('textarea');
+  note.placeholder = 'Catatan / link / detail...';
+  note.dataset.taskId = id;
+  note.addEventListener('input', () => { currentData.notes[id] = note.value; scheduleSave(); });
+  taskDiv.appendChild(note);
+
+  body.appendChild(taskDiv);
+}
+
 function buildUI(){
   const container = document.getElementById('categories');
   container.innerHTML = '';
+
   STRUCTURE.forEach((cat, ci) => {
+
     const catDiv = document.createElement('div');
     catDiv.className = 'category';
     const head = document.createElement('div');
     head.className = 'category-head';
-    head.innerHTML = `<span>${cat.name}</span><span class="chev">▼</span>`;
+    const catNameSpan = document.createElement('span');
+    catNameSpan.contentEditable = 'true';
+    catNameSpan.className = 'editable-label';
+    catNameSpan.textContent = structureLabels.categories[ci] || cat.name;
+    catNameSpan.addEventListener('click', (e) => e.stopPropagation());
+    catNameSpan.addEventListener('input', () => {
+      structureLabels.categories[ci] = catNameSpan.textContent;
+      rebuildTaskIndex();
+      scheduleStructLabelSave();
+    });
+    catNameSpan.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); catNameSpan.blur(); } });
+    head.appendChild(catNameSpan);
+
+    const chevSpan = document.createElement('span');
+    chevSpan.className = 'chev';
+    chevSpan.textContent = '▼';
+    head.appendChild(chevSpan);
     head.onclick = () => { head.classList.toggle('collapsed'); body.classList.toggle('hidden'); };
     catDiv.appendChild(head);
 
     const body = document.createElement('div');
     body.className = 'category-body';
 
+    let displayNum = 0;
+    let hiddenCount = 0;
     cat.tasks.forEach((taskText, ti) => {
       const id = `c${ci}_t${ti}`;
-      const taskDiv = document.createElement('div');
-      taskDiv.className = 'task';
-      const title = document.createElement('div');
-      title.className = 'task-title';
-      title.textContent = `${ti+1}. ${taskText}`;
-      taskDiv.appendChild(title);
-
-      const statusRow = document.createElement('div');
-      statusRow.className = 'status-row';
-      STATUS_OPTIONS.forEach(opt => {
-        const btn = document.createElement('button');
-        btn.className = 'status-btn';
-        btn.dataset.status = opt;
-        btn.dataset.taskId = id;
-        btn.textContent = opt;
-        btn.onclick = () => setStatus(id, opt);
-        statusRow.appendChild(btn);
-      });
-      taskDiv.appendChild(statusRow);
-
-      const note = document.createElement('textarea');
-      note.placeholder = 'Catatan / link / detail...';
-      note.dataset.taskId = id;
-      note.addEventListener('input', () => { currentData.notes[id] = note.value; scheduleSave(); });
-      taskDiv.appendChild(note);
-
-      body.appendChild(taskDiv);
+      if(hiddenTasks[id]){ hiddenCount++; return; }
+      displayNum++;
+      renderTaskRow(body, id, taskText, displayNum);
     });
+    (customTasks[ci] || []).forEach((t, xi) => {
+      displayNum++;
+      const id = `c${ci}_x${xi}`;
+      renderTaskRow(body, id, t.text, displayNum, { custom: true, ci, customIndex: xi });
+    });
+
+    if(hiddenCount > 0){
+      const hiddenBar = document.createElement('div');
+      hiddenBar.className = 'hidden-chip-bar';
+      const link = document.createElement('span');
+      link.className = 'restore-link';
+      link.textContent = `↺ Pulihkan ${hiddenCount} checklist yang dihapus di menu ini`;
+      link.onclick = () => restoreCategoryHiddenTasks(ci);
+      hiddenBar.appendChild(link);
+      body.appendChild(hiddenBar);
+    }
+
+    const addWrap = document.createElement('div');
+    addWrap.className = 'add-task-wrap';
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-task-btn';
+    addBtn.textContent = '+ Tambah Checklist';
+    const addForm = document.createElement('div');
+    addForm.className = 'add-task-form hidden';
+    const addInput = document.createElement('input');
+    addInput.type = 'text';
+    addInput.placeholder = 'Tulis checklist baru...';
+    const addSubmit = document.createElement('button');
+    addSubmit.className = 'btn btn-primary';
+    addSubmit.textContent = 'Tambah';
+    addSubmit.onclick = () => { addCustomTask(ci, addInput.value); };
+    addInput.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); addCustomTask(ci, addInput.value); } });
+    addBtn.onclick = () => { addForm.classList.toggle('hidden'); if(!addForm.classList.contains('hidden')) addInput.focus(); };
+    addForm.appendChild(addInput);
+    addForm.appendChild(addSubmit);
+    addWrap.appendChild(addBtn);
+    addWrap.appendChild(addForm);
+    body.appendChild(addWrap);
+
     catDiv.appendChild(body);
     container.appendChild(catDiv);
   });
+
 }
 
 function setStatus(id, status){
@@ -1322,10 +1546,16 @@ async function renderSummaryKinerja(){
 
 /* ---------------- INIT ---------------- */
 document.getElementById('dateInput').value = todayStr();
-buildUI();
-loadForDate(todayStr());
-loadHistory();
-buildRekapControls();
+(async () => {
+  await loadStructureLabels();
+  await loadCustomTasks();
+  await loadHiddenState();
+  rebuildTaskIndex();
+  buildUI();
+  loadForDate(todayStr());
+  loadHistory();
+  buildRekapControls();
+})();
 </script>
 </body>
 </html>
