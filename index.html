@@ -184,6 +184,8 @@
   .fu-badge.Close{background:var(--green-bg);color:var(--green);}
   .fu-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
   .fu-actions select{border:1px solid #c7d3e0;border-radius:6px;padding:4px 6px;font-size:11.5px;font-family:Arial;}
+  .fu-del{border:1.5px solid #e39aa1;background:var(--red-bg);color:var(--red-fg);border-radius:14px;padding:5px 14px;font-size:11.5px;font-weight:bold;cursor:pointer;font-family:Arial;}
+  .fu-del:hover{background:#ffb3bd;}
 </style>
 </head>
 <body>
@@ -1005,7 +1007,9 @@ function renderYearDetail(monthBuckets, year){
 
 /* ---- Rekap Follow-up tracking status (Open/Onprogress/Hold/Close) ---- */
 const REKAP_FU_KEY = 'rekapfollow:status';
+const REKAP_FU_DISMISS_KEY = 'rekapfollow:dismissed';
 let rekapFuStatusMap = {};
+let rekapFuDismissed = {};
 let rekapFuFilter = 'Semua';
 let rekapFuItemsCache = [];
 
@@ -1016,10 +1020,18 @@ async function loadRekapFuStatus(){
     const res = await store.get(REKAP_FU_KEY);
     rekapFuStatusMap = (res && res.value) ? JSON.parse(res.value) : {};
   }catch(e){ rekapFuStatusMap = {}; }
+  try{
+    const res2 = await store.get(REKAP_FU_DISMISS_KEY);
+    rekapFuDismissed = (res2 && res2.value) ? JSON.parse(res2.value) : {};
+  }catch(e){ rekapFuDismissed = {}; }
 }
 async function saveRekapFuStatus(){
   try{ await store.set(REKAP_FU_KEY, JSON.stringify(rekapFuStatusMap)); }
   catch(e){ console.error('Gagal menyimpan status follow up', e); }
+}
+async function saveRekapFuDismissed(){
+  try{ await store.set(REKAP_FU_DISMISS_KEY, JSON.stringify(rekapFuDismissed)); }
+  catch(e){ console.error('Gagal menyimpan hapus follow up', e); }
 }
 
 function renderRekapFuSummary(){
@@ -1060,6 +1072,7 @@ function renderFollowListBody(){
         <select data-key="${it.key}" class="rekap-fu-status-select">
           ${FOLLOWUP_STATUS.map(s => `<option value="${s}" ${s===it.trackStatus?'selected':''}>${s}</option>`).join('')}
         </select>
+        <button class="fu-del" data-key="${it.key}">Hapus</button>
       </div>
     </div>
   `).join('');
@@ -1072,6 +1085,17 @@ function renderFollowListBody(){
       if(item) item.trackStatus = sel.value;
       renderRekapFuSummary();
       renderFollowListBody();
+    };
+  });
+  el.querySelectorAll('.fu-del').forEach(btn => {
+    btn.onclick = async () => {
+      if(confirm('Hapus item follow up ini dari daftar?')){
+        rekapFuDismissed[btn.dataset.key] = true;
+        await saveRekapFuDismissed();
+        rekapFuItemsCache = rekapFuItemsCache.filter(i => i.key !== btn.dataset.key);
+        renderRekapFuSummary();
+        renderFollowListBody();
+      }
     };
   });
 }
@@ -1092,7 +1116,7 @@ async function renderFollowList(periodDates){
   items.sort((a,b) => a.date.localeCompare(b.date));
   await loadRekapFuStatus();
   items.forEach(it => { it.trackStatus = rekapFuStatusMap[it.key] || 'Open'; });
-  rekapFuItemsCache = items;
+  rekapFuItemsCache = items.filter(it => !rekapFuDismissed[it.key]);
 
   if(items.length === 0){
     document.getElementById('rekapFuSummaryCards').innerHTML = '';
