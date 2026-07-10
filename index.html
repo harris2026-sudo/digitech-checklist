@@ -318,6 +318,8 @@
     <div id="rekapDetail"></div>
 
     <div class="section-title">🟡 Item Follow up / 🔴 Belum Selesai dalam periode ini</div>
+    <div class="summary" id="rekapFuSummaryCards"></div>
+    <div class="fu-toolbar" id="rekapFuFilterBar"></div>
     <div id="rekapFollowList"></div>
   </div>
 
@@ -912,7 +914,7 @@ async function renderRekap(){
   }
 
   renderAggregateSummary(periodDates);
-  renderFollowList(periodDates);
+  await renderFollowList(periodDates);
 }
 
 function renderAggregateSummary(periodDates){
@@ -1001,8 +1003,80 @@ function renderYearDetail(monthBuckets, year){
   }).join('');
 }
 
-function renderFollowList(periodDates){
+/* ---- Rekap Follow-up tracking status (Open/Onprogress/Hold/Close) ---- */
+const REKAP_FU_KEY = 'rekapfollow:status';
+let rekapFuStatusMap = {};
+let rekapFuFilter = 'Semua';
+let rekapFuItemsCache = [];
+
+function rekapFuKey(date, taskId){ return date + '__' + taskId; }
+
+async function loadRekapFuStatus(){
+  try{
+    const res = await store.get(REKAP_FU_KEY);
+    rekapFuStatusMap = (res && res.value) ? JSON.parse(res.value) : {};
+  }catch(e){ rekapFuStatusMap = {}; }
+}
+async function saveRekapFuStatus(){
+  try{ await store.set(REKAP_FU_KEY, JSON.stringify(rekapFuStatusMap)); }
+  catch(e){ console.error('Gagal menyimpan status follow up', e); }
+}
+
+function renderRekapFuSummary(){
+  const counts = { Open:0, Onprogress:0, Hold:0, Close:0 };
+  rekapFuItemsCache.forEach(it => { if(counts[it.trackStatus] !== undefined) counts[it.trackStatus]++; });
+  const el = document.getElementById('rekapFuSummaryCards');
+  el.innerHTML = FOLLOWUP_STATUS.map(s => `<div class="card"><div class="num">${counts[s]}</div><div class="lab">${s}</div></div>`).join('')
+    + `<div class="card"><div class="num">${rekapFuItemsCache.length}</div><div class="lab">Total</div></div>`;
+}
+
+function renderRekapFuFilterBar(){
+  const bar = document.getElementById('rekapFuFilterBar');
+  const opts = ['Semua', ...FOLLOWUP_STATUS];
+  bar.innerHTML = opts.map(o => `<button class="fu-filter ${rekapFuFilter===o?'active':''}" data-f="${o}">${o === 'Semua' ? 'Semua Status' : o}</button>`).join('');
+  bar.querySelectorAll('.fu-filter').forEach(btn => {
+    btn.onclick = () => { rekapFuFilter = btn.dataset.f; renderFollowListBody(); };
+  });
+}
+
+function renderFollowListBody(){
   const el = document.getElementById('rekapFollowList');
+  const items = rekapFuFilter === 'Semua' ? rekapFuItemsCache : rekapFuItemsCache.filter(it => it.trackStatus === rekapFuFilter);
+  if(items.length === 0){
+    el.innerHTML = '<div class="empty-note">Tidak ada item Follow up / Belum Selesai pada filter ini. 🎉</div>';
+    return;
+  }
+  el.innerHTML = items.map(it => `
+    <div class="fu-card status-${it.trackStatus}" data-key="${it.key}">
+      <div class="fu-top">
+        <div>
+          <div class="fu-desc"><span class="fi-date">${it.date}</span>${taskTextMap[it.taskId] || it.taskId}</div>
+          <div class="fu-meta"><span class="fi-status ${it.status==='Not yet'?'ny':'fu'}">${it.status}</span></div>
+        </div>
+        <span class="fu-badge ${it.trackStatus}">${it.trackStatus}</span>
+      </div>
+      ${it.note ? `<div class="fu-note">${it.note}</div>` : ''}
+      <div class="fu-actions">
+        <select data-key="${it.key}" class="rekap-fu-status-select">
+          ${FOLLOWUP_STATUS.map(s => `<option value="${s}" ${s===it.trackStatus?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+  `).join('');
+
+  el.querySelectorAll('.rekap-fu-status-select').forEach(sel => {
+    sel.onchange = async () => {
+      rekapFuStatusMap[sel.dataset.key] = sel.value;
+      await saveRekapFuStatus();
+      const item = rekapFuItemsCache.find(i => i.key === sel.dataset.key);
+      if(item) item.trackStatus = sel.value;
+      renderRekapFuSummary();
+      renderFollowListBody();
+    };
+  });
+}
+
+async function renderFollowList(periodDates){
   const items = [];
   periodDates.forEach(d => {
     const entry = allEntriesCache[d];
@@ -1010,22 +1084,25 @@ function renderFollowList(periodDates){
     Object.keys(entry.status).forEach(taskId => {
       const s = entry.status[taskId];
       if(s === 'Follow up' || s === 'Not yet'){
-        items.push({ date:d, taskId, status:s, note: (entry.notes && entry.notes[taskId]) || '' });
+        const key = rekapFuKey(d, taskId);
+        items.push({ key, date:d, taskId, status:s, note: (entry.notes && entry.notes[taskId]) || '', trackStatus: rekapFuStatusMap[key] || 'Open' });
       }
     });
   });
+  items.sort((a,b) => a.date.localeCompare(b.date));
+  await loadRekapFuStatus();
+  items.forEach(it => { it.trackStatus = rekapFuStatusMap[it.key] || 'Open'; });
+  rekapFuItemsCache = items;
+
   if(items.length === 0){
-    el.innerHTML = '<div class="empty-note">Tidak ada item Follow up / Belum Selesai pada periode ini. 🎉</div>';
+    document.getElementById('rekapFuSummaryCards').innerHTML = '';
+    document.getElementById('rekapFuFilterBar').innerHTML = '';
+    document.getElementById('rekapFollowList').innerHTML = '<div class="empty-note">Tidak ada item Follow up / Belum Selesai pada periode ini. 🎉</div>';
     return;
   }
-  items.sort((a,b) => a.date.localeCompare(b.date));
-  el.innerHTML = items.map(it => `
-    <div class="follow-item ${it.status==='Not yet'?'notyet':''}">
-      <span class="fi-date">${it.date}</span>${taskTextMap[it.taskId] || it.taskId}
-      <span class="fi-status ${it.status==='Not yet'?'ny':'fu'}">${it.status}</span>
-      ${it.note ? `<div style="margin-top:4px;color:#667;">${it.note}</div>` : ''}
-    </div>
-  `).join('');
+  renderRekapFuSummary();
+  renderRekapFuFilterBar();
+  renderFollowListBody();
 }
 
 /* ================= FOLLOW UP ENGINE ================= */
