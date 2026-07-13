@@ -436,11 +436,12 @@ async function gsGet(key){
 }
 async function gsSet(key, value){
   requireStorageConfig();
-  const res = await fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // hindari CORS preflight ke Apps Script
-    body: JSON.stringify({ action:'set', key, value })
-  });
+  // Catatan: pakai GET (bukan POST) karena Apps Script Web App melakukan redirect internal
+  // (script.google.com -> script.googleusercontent.com) yang sering menghapus body POST di
+  // tengah jalan saat di-fetch dari domain lain (cross-origin), menyebabkan "Failed to fetch".
+  // GET tidak kena masalah ini karena parameter ikut di URL, bukan di body.
+  const url = `${APPS_SCRIPT_URL}?action=set&key=${encodeURIComponent(key)}&value=${encodeURIComponent(value)}`;
+  const res = await fetch(url);
   if(!res.ok) throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
   const data = await res.json();
   if(data.error) throw new Error(data.message || data.error);
@@ -448,11 +449,8 @@ async function gsSet(key, value){
 }
 async function gsDelete(key){
   requireStorageConfig();
-  const res = await fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action:'delete', key })
-  });
+  const url = `${APPS_SCRIPT_URL}?action=delete&key=${encodeURIComponent(key)}`;
+  const res = await fetch(url);
   if(!res.ok) throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
   const data = await res.json();
   if(data.error) throw new Error(data.message || data.error);
