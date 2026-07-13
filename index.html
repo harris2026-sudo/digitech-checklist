@@ -186,9 +186,21 @@
   .fu-actions select{border:1px solid #c7d3e0;border-radius:6px;padding:4px 6px;font-size:11.5px;font-family:Arial;}
   .fu-del{border:1.5px solid #e39aa1;background:var(--red-bg);color:var(--red-fg);border-radius:14px;padding:5px 14px;font-size:11.5px;font-weight:bold;cursor:pointer;font-family:Arial;}
   .fu-del:hover{background:#ffb3bd;}
+  /* ---- Toast notifikasi ---- */
+  #toastWrap{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+  .toast{
+    display:flex;align-items:center;gap:10px;min-width:220px;max-width:340px;
+    padding:12px 16px;border-radius:8px;color:#fff;font-size:13px;font-weight:600;
+    background:var(--navy);box-shadow:0 4px 14px rgba(0,0,0,.18);
+    opacity:0;transform:translateX(20px);transition:opacity .25s ease,transform .25s ease;
+  }
+  .toast.show{opacity:1;transform:translateX(0);}
+  .toast.toast-success{background:#1f7a3f;}
+  .toast.toast-error{background:#b3261e;}
 </style>
 </head>
 <body>
+<div id="toastWrap"></div>
 <div class="app">
   <header>
     <h1 contenteditable="true" id="headerTitle">📋 Digitech Daily Checklist Assistant</h1>
@@ -329,11 +341,37 @@
 </div>
 
 <script>
-/* ---------------- STORAGE LAYER (window.storage only, no local fallback) ---------------- */
-if (typeof window.storage === 'undefined' || typeof window.storage.get !== 'function') {
-  console.error('window.storage tidak tersedia di environment ini. Aplikasi ini wajib menggunakan window.storage (tanpa localStorage/backup lokal).');
+/* ---------------- STORAGE LAYER (window.storage only, no local fallback) ----------------
+   Catatan: window.storage bisa saja belum siap tepat saat script ini pertama kali jalan
+   (di-inject sedikit belakangan oleh host). Karena itu store TIDAK di-cache sebagai
+   referensi statis di awal; setiap pemanggilan mengecek window.storage secara langsung
+   (live) saat itu terjadi, sehingga tidak salah gagal hanya karena masalah timing. */
+function requireStorage(){
+  if (typeof window.storage === 'undefined' || typeof window.storage.get !== 'function') {
+    throw new Error('window.storage tidak tersedia. Aplikasi ini wajib menggunakan window.storage (tanpa localStorage/backup lokal).');
+  }
+  return window.storage;
 }
-const store = window.storage;
+const store = {
+  get:    (...args) => requireStorage().get(...args),
+  set:    (...args) => requireStorage().set(...args),
+  delete: (...args) => requireStorage().delete(...args),
+  list:   (...args) => requireStorage().list(...args)
+};
+
+/* ---------------- TOAST NOTIFIKASI ---------------- */
+function showToast(message, type){
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' toast-' + type : '');
+  el.textContent = message;
+  wrap.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  }, 2800);
+}
 
 document.getElementById('storageBadge').textContent = 'Site Reliability Engineer';
 
@@ -803,6 +841,12 @@ document.getElementById('resetBtn').onclick = () => {
 };
 document.getElementById('saveBtn').onclick = async () => {
   await saveCurrent();
+  const ok = !document.getElementById('saveStatus').classList.contains('error');
+  if(ok){
+    showToast('✓ Checklist berhasil disimpan', 'success');
+  } else {
+    showToast('✗ Gagal menyimpan checklist', 'error');
+  }
   currentData.status = {};
   refreshStatusButtons();
   refreshSummary();
