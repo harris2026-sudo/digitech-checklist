@@ -1161,9 +1161,6 @@ document.getElementById('saveBtn').onclick = async () => {
   } else {
     showToast('✗ Gagal menyimpan checklist', 'error');
   }
-  currentData.status = {};
-  refreshStatusButtons();
-  refreshSummary();
 };
 document.getElementById('dateInput').onchange = (e) => loadForDate(e.target.value);
 document.getElementById('shiftInput').onchange = scheduleSave;
