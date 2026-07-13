@@ -913,7 +913,11 @@ function fetchRosterSheetJSONP(sheetName, timeoutMs){
   timeoutMs = timeoutMs || 12000;
   return new Promise((resolve, reject) => {
     const cbName = 'rosterJsonpCb_' + (rosterJsonpSeq++) + '_' + Date.now();
-    const url = `https://docs.google.com/spreadsheets/d/${ROSTER_SHEET_ID}/gviz/tq?tqx=out:json;responseHandler=${cbName}&sheet=${encodeURIComponent(sheetName)}`;
+    /* PENTING: di dalam parameter tqx, pasangan key:value dipisah TITIK DUA, bukan '='.
+       Format salah (out:json;responseHandler=X) membuat Google mengabaikan nama handler kita
+       dan diam-diam memanggil handler default google.visualization.Query.setResponse yang
+       tidak pernah kita definisikan -> callback tidak pernah terpanggil -> selalu timeout. */
+    const url = `https://docs.google.com/spreadsheets/d/${ROSTER_SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${cbName}&sheet=${encodeURIComponent(sheetName)}`;
     const script = document.createElement('script');
     let done = false;
     const timer = setTimeout(() => {
