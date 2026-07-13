@@ -198,6 +198,9 @@
   .roster-sync-banner.syncing{background:var(--hilite);color:var(--navy);}
   .roster-sync-banner.ok{background:var(--green-bg);color:var(--green);}
   .roster-sync-banner.error{background:var(--red-bg);color:var(--red-fg);}
+  .roster-editable-label{outline:none;border-radius:4px;padding:1px 3px;cursor:text;}
+  .roster-editable-label:hover{background:rgba(31,56,100,.06);}
+  .roster-editable-label:focus{background:rgba(31,56,100,.12);box-shadow:0 0 0 1.5px rgba(31,56,100,.3);}
   .roster-toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
   .roster-modeselect{display:flex;gap:6px;}
   .roster-modeselect button{
@@ -413,10 +416,10 @@
   <!-- ================= VIEW: ROSTER ================= -->
   <div class="view" id="view-roster">
     <div class="roster-legend">
-      <div class="roster-chip"><span class="dot" style="background:#1F4E79"></span>NFS — Nico Fahryan Sandy</div>
-      <div class="roster-chip"><span class="dot" style="background:#1E7A34"></span>LG — Lukman Gunawan</div>
-      <div class="roster-chip"><span class="dot" style="background:#7F6000"></span>TW — Taufik Wirayudha</div>
-      <div class="roster-chip"><span class="dot" style="background:#9C0006"></span>AS — Adhe Setiawan</div>
+      <div class="roster-chip"><span class="dot" style="background:#1F4E79"></span><span class="roster-editable-label" contenteditable="true" data-rkey="legend_NFS">NFS</span></div>
+      <div class="roster-chip"><span class="dot" style="background:#1E7A34"></span><span class="roster-editable-label" contenteditable="true" data-rkey="legend_LG">LG</span></div>
+      <div class="roster-chip"><span class="dot" style="background:#7F6000"></span><span class="roster-editable-label" contenteditable="true" data-rkey="legend_TW">TW</span></div>
+      <div class="roster-chip"><span class="dot" style="background:#9C0006"></span><span class="roster-editable-label" contenteditable="true" data-rkey="legend_AS">AS</span></div>
     </div>
     <div id="rosterSyncBanner" class="roster-sync-banner syncing">Menyinkronkan data roster dari Google Sheets...</div>
     <div class="roster-toolbar">
@@ -560,6 +563,46 @@ Object.values(headerFields).forEach(el => {
   el.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); el.blur(); } });
 });
 loadHeaderConfig();
+
+/* ---------------- ROSTER: LABEL YANG BISA DIEDIT ---------------- */
+const ROSTER_LABELS_KEY = 'app:rosterLabels';
+let rosterLabelOverrides = {};
+function rosterLabelText(key, defaultText){
+  const v = rosterLabelOverrides[key];
+  return (v !== undefined && v !== null && v !== '') ? v : defaultText;
+}
+let rosterLabelSaveTimer = null;
+function scheduleRosterLabelSave(){ clearTimeout(rosterLabelSaveTimer); rosterLabelSaveTimer = setTimeout(saveRosterLabels, 500); }
+async function saveRosterLabels(){
+  try{ await store.set(ROSTER_LABELS_KEY, JSON.stringify(rosterLabelOverrides)); }
+  catch(e){ console.error('Gagal menyimpan label roster', e); }
+}
+async function loadRosterLabels(){
+  try{
+    const res = await store.get(ROSTER_LABELS_KEY);
+    if(res && res.value) rosterLabelOverrides = JSON.parse(res.value) || {};
+  }catch(e){ /* belum ada data tersimpan, pakai default */ }
+  // Legend chip statis di HTML (tidak lewat renderRoster), terapkan override di sini
+  document.querySelectorAll('.roster-legend [data-rkey]').forEach(el => {
+    const key = el.dataset.rkey;
+    if(rosterLabelOverrides[key]) el.textContent = rosterLabelOverrides[key];
+  });
+}
+loadRosterLabels();
+// Delegasi event: elemen shift-card dirender ulang tiap sync, jadi listener dipasang di document
+document.addEventListener('focusout', (e) => {
+  const el = e.target.closest && e.target.closest('.roster-editable-label');
+  if(!el) return;
+  const key = el.dataset.rkey;
+  if(!key) return;
+  rosterLabelOverrides[key] = el.textContent;
+  scheduleRosterLabelSave();
+});
+document.addEventListener('keydown', (e) => {
+  const el = e.target.closest && e.target.closest('.roster-editable-label');
+  if(!el) return;
+  if(e.key === 'Enter'){ e.preventDefault(); el.blur(); }
+});
 
 /* ---------------- STRUCTURE ---------------- */
 const STATUS_OPTIONS = ["Checked","Follow up","Continue","Not yet","Information","n/a"];
@@ -1056,15 +1099,15 @@ function renderRoster(){
     html += renderShiftNowGrid(todayRec, now);
     if(todayRec && ((todayRec.backup && todayRec.backup !== '-') || (todayRec.cuti && todayRec.cuti !== '-'))){
       html += `<div class="roster-daycard">
-        <div class="roster-daycard-date">Info tambahan hari ini</div>
+        <div class="roster-daycard-date roster-editable-label" contenteditable="true" data-rkey="label_infoTambahan">${rosterLabelText('label_infoTambahan','Info tambahan hari ini')}</div>
         <div class="roster-daycard-shifts">
-          ${todayRec.backup && todayRec.backup !== '-' ? `<div class="roster-shift-row muted">${rosterAvatarHTML(todayRec.backup, 32)}<span class="roster-shift-label" style="flex:0 0 90px;">Backup</span><span class="roster-shift-name">${rosterPersonName(todayRec.backup)}</span></div>` : ''}
-          ${todayRec.cuti && todayRec.cuti !== '-' ? `<div class="roster-shift-row muted">${rosterAvatarHTML(todayRec.cuti, 32)}<span class="roster-shift-label" style="flex:0 0 90px;">Cuti</span><span class="roster-shift-name">${rosterPersonName(todayRec.cuti)}</span></div>` : ''}
+          ${todayRec.backup && todayRec.backup !== '-' ? `<div class="roster-shift-row muted">${rosterAvatarHTML(todayRec.backup, 32)}<span class="roster-shift-label roster-editable-label" contenteditable="true" data-rkey="label_backup" style="flex:0 0 90px;">${rosterLabelText('label_backup','Backup')}</span><span class="roster-shift-name">${rosterPersonName(todayRec.backup)}</span></div>` : ''}
+          ${todayRec.cuti && todayRec.cuti !== '-' ? `<div class="roster-shift-row muted">${rosterAvatarHTML(todayRec.cuti, 32)}<span class="roster-shift-label roster-editable-label" contenteditable="true" data-rkey="label_cuti" style="flex:0 0 90px;">${rosterLabelText('label_cuti','Cuti')}</span><span class="roster-shift-name">${rosterPersonName(todayRec.cuti)}</span></div>` : ''}
         </div>
       </div>`;
     }
     if(!todayRec){
-      html += `<div class="roster-empty">Tidak ada data penugasan personil untuk hari ini di sheet (jam shift tetap ditampilkan di atas).</div>`;
+      html += `<div class="roster-empty roster-editable-label" contenteditable="true" data-rkey="label_emptyToday">${rosterLabelText('label_emptyToday','Tidak ada data penugasan personil untuk hari ini di sheet (jam shift tetap ditampilkan di atas).')}</div>`;
     }
     box.innerHTML = html;
     return;
@@ -1104,12 +1147,14 @@ function renderShiftNowGrid(rec, now){
     const code = rec ? rec[def.key] : '-';
     const hasPerson = code && code !== '-';
     const isLive = isShiftActiveNow(def.key, now);
+    const titleKey = 'shiftTitle_' + def.key;
+    const defaultTitle = `${def.label} — ${def.start}\u2013${def.end}`;
+    const titleText = rosterLabelText(titleKey, defaultTitle);
     return `
       <div class="roster-shiftnow-card ${isLive ? 'is-live' : ''}">
         <div class="roster-shiftnow-top">
           <div>
-            <div class="roster-shiftnow-label">${def.label}${hasPerson ? ` — ${rosterPersonName(code)}` : ''}</div>
-            <div class="roster-shiftnow-time">${def.start}–${def.end}</div>
+            <div class="roster-shiftnow-label roster-editable-label" contenteditable="true" data-rkey="${titleKey}">${titleText}</div>
           </div>
           <span class="roster-live-badge"><span class="roster-live-dot"></span>LIVE</span>
         </div>
