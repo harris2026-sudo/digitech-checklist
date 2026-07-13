@@ -415,12 +415,6 @@
 
   <!-- ================= VIEW: ROSTER ================= -->
   <div class="view" id="view-roster">
-    <div class="roster-legend">
-      <div class="roster-chip"><span class="dot" style="background:#1F4E79"></span><span class="roster-editable-label" contenteditable="true" data-rkey="legend_NFS">NFS</span></div>
-      <div class="roster-chip"><span class="dot" style="background:#1E7A34"></span><span class="roster-editable-label" contenteditable="true" data-rkey="legend_LG">LG</span></div>
-      <div class="roster-chip"><span class="dot" style="background:#7F6000"></span><span class="roster-editable-label" contenteditable="true" data-rkey="legend_TW">TW</span></div>
-      <div class="roster-chip"><span class="dot" style="background:#9C0006"></span><span class="roster-editable-label" contenteditable="true" data-rkey="legend_AS">AS</span></div>
-    </div>
     <div id="rosterSyncBanner" class="roster-sync-banner syncing">Menyinkronkan data roster dari Google Sheets...</div>
     <div class="roster-toolbar">
       <div class="roster-modeselect">
@@ -581,12 +575,7 @@ async function loadRosterLabels(){
   try{
     const res = await store.get(ROSTER_LABELS_KEY);
     if(res && res.value) rosterLabelOverrides = JSON.parse(res.value) || {};
-  }catch(e){ /* belum ada data tersimpan, pakai default */ }
-  // Legend chip statis di HTML (tidak lewat renderRoster), terapkan override di sini
-  document.querySelectorAll('.roster-legend [data-rkey]').forEach(el => {
-    const key = el.dataset.rkey;
-    if(rosterLabelOverrides[key]) el.textContent = rosterLabelOverrides[key];
-  });
+  } catch(e){ /* belum ada data tersimpan, pakai default */ }
 }
 loadRosterLabels();
 // Delegasi event: elemen shift-card dirender ulang tiap sync, jadi listener dipasang di document
