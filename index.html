@@ -804,45 +804,70 @@ function isShiftActiveNow(shiftKey, now){
   if(start < end) return cur >= start && cur < end;
   return cur >= start || cur < end; // wrap tengah malam
 }
-function parseRosterSheetDate(str){
-  if(!str) return null;
-  const m = String(str).trim().match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/);
-  if(!m) return null;
-  const day = parseInt(m[1],10);
-  const mon = ROSTER_MONTHS_EN[m[2]];
-  let year = parseInt(m[3],10);
-  if(year < 100) year += 2000;
-  if(mon === undefined) return null;
-  return new Date(year, mon, day);
+/* Parser tanggal dari SATU CELL gviz. Coba beberapa cara (urutan dari paling andal):
+   1) cell.v hasil normalisasi "Date(y,m,d...)" -> paling akurat, tidak tergantung format tampilan
+   2) cell.f (teks yang tampil di sheet) dengan pola umum "1-May-26" / "1/5/2026" / "2026-05-01" */
+function parseGvizCellDate(cell){
+  if(!cell) return null;
+  const vRaw = cell.v !== undefined && cell.v !== null ? String(cell.v) : '';
+  const mDate = vRaw.match(/^Date\((\d+),(\d+),(\d+)/); // bulan di sini 0-indexed (gaya JS Date)
+  if(mDate){
+    return new Date(parseInt(mDate[1],10), parseInt(mDate[2],10), parseInt(mDate[3],10));
+  }
+  const fRaw = (cell.f !== undefined && cell.f !== null ? String(cell.f) : '').trim();
+  let m = fRaw.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/); // 1-May-26
+  if(m){
+    const mon = ROSTER_MONTHS_EN[m[2]];
+    if(mon !== undefined){
+      let year = parseInt(m[3],10); if(year < 100) year += 2000;
+      return new Date(year, mon, parseInt(m[1],10));
+    }
+  }
+  m = fRaw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // 5/1/2026 (M/D/YYYY ala gviz default)
+  if(m){
+    return new Date(parseInt(m[3],10), parseInt(m[1],10)-1, parseInt(m[2],10));
+  }
+  m = fRaw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // 2026-05-01
+  if(m){
+    return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+  }
+  return null;
+}
+/* Ambil teks tampilan sebuah cell (untuk label/kode, bukan tanggal) */
+function gvizCellText(cell){
+  if(!cell) return '';
+  if(cell.f !== undefined && cell.f !== null && cell.f !== '') return String(cell.f);
+  if(cell.v !== undefined && cell.v !== null) return String(cell.v);
+  return '';
 }
 function parseGvizText(text){
   const m = text.match(/setResponse\(([\s\S]*)\);?\s*$/);
   if(!m) throw new Error('Format respons Google Sheets tidak dikenali');
-  const json = JSON.parse(m[1]);
+  /* Respons gviz BUKAN JSON murni - nilai bertipe tanggal ditulis literal seperti
+     new Date(2026,6,14) yang membuat JSON.parse gagal. Kita bungkus jadi string dulu. */
+  const safe = m[1].replace(/new Date\(([^)]*)\)/g, (_, args) => `"Date(${args})"`);
+  const json = JSON.parse(safe);
   if(!json.table || !json.table.rows) return [];
-  return json.table.rows.map(r => (r.c || []).map(cell => {
-    if(!cell) return '';
-    if(cell.f !== undefined && cell.f !== null) return cell.f;
-    return cell.v !== undefined && cell.v !== null ? cell.v : '';
-  }));
+  return json.table.rows.map(r => (r.c || []).map(cell => cell || null));
 }
 function parseRosterBlocks(rows){
   const days = [];
   for(let i=0;i<rows.length;i++){
     const row = rows[i] || [];
-    if(String(row[0]||'').trim() === 'Shift'){
+    if(gvizCellText(row[0]).trim() === 'Shift'){
       const dateRow = rows[i+1] || [];
       const cols = [];
       for(let c=1;c<row.length;c++){
-        if(row[c]) cols.push({ weekday: row[c], dateStr: dateRow[c] || '' });
+        const weekday = gvizCellText(row[c]);
+        if(weekday) cols.push({ weekday, dateCell: dateRow[c] || null });
       }
       if(cols.length === 0) continue;
       const rec = { shift1:[], shift2:[], shift3:[], backup:[], cuti:[] };
       let r = i+2;
       while(r < rows.length){
-        const label = String((rows[r]||[])[0] || '').trim();
+        const label = gvizCellText((rows[r]||[])[0]).trim();
         if(!label || label === 'Shift') break;
-        const values = cols.map((_, idx) => (rows[r][idx+1] || '-'));
+        const values = cols.map((_, idx) => gvizCellText(rows[r][idx+1]) || '-');
         if(/shift\s*1/i.test(label)) rec.shift1 = values;
         else if(/shift\s*2/i.test(label)) rec.shift2 = values;
         else if(/shift\s*3/i.test(label)) rec.shift3 = values;
@@ -851,7 +876,7 @@ function parseRosterBlocks(rows){
         r++;
       }
       cols.forEach((col, idx) => {
-        const date = parseRosterSheetDate(col.dateStr);
+        const date = parseGvizCellDate(col.dateCell);
         if(!date) return;
         days.push({
           date, weekday: col.weekday,
@@ -972,12 +997,13 @@ function renderRoster(){
 function renderShiftNowGrid(rec, now){
   const cards = ROSTER_SHIFT_DEFS.map(def => {
     const code = rec ? rec[def.key] : '-';
+    const hasPerson = code && code !== '-';
     const isLive = isShiftActiveNow(def.key, now);
     return `
       <div class="roster-shiftnow-card ${isLive ? 'is-live' : ''}">
         <div class="roster-shiftnow-top">
           <div>
-            <div class="roster-shiftnow-label">${def.label}</div>
+            <div class="roster-shiftnow-label">${def.label}${hasPerson ? ` — ${rosterPersonName(code)}` : ''}</div>
             <div class="roster-shiftnow-time">${def.start}–${def.end}</div>
           </div>
           <span class="roster-live-badge"><span class="roster-live-dot"></span>LIVE</span>
@@ -985,8 +1011,8 @@ function renderShiftNowGrid(rec, now){
         <div class="roster-shiftnow-person">
           ${rosterAvatarHTML(code, isLive ? 56 : 44)}
           <div>
-            <div class="roster-shiftnow-name">${code === '-' || !code ? '–' : rosterPersonName(code)}</div>
-            <div class="roster-shiftnow-code">${code === '-' || !code ? 'Belum ada data' : code}</div>
+            <div class="roster-shiftnow-name">${hasPerson ? rosterPersonName(code) : '–'}</div>
+            <div class="roster-shiftnow-code">${hasPerson ? code : 'Belum ada data'}</div>
           </div>
         </div>
       </div>`;
