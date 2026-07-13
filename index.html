@@ -808,6 +808,9 @@ function isShiftActiveNow(shiftKey, now){
    2) cell.f (teks yang tampil di sheet) dengan pola umum "1-May-26" / "1/5/2026" / "2026-05-01" */
 function parseGvizCellDate(cell){
   if(!cell) return null;
+  if(cell.v instanceof Date){
+    return new Date(cell.v.getFullYear(), cell.v.getMonth(), cell.v.getDate());
+  }
   const vRaw = cell.v !== undefined && cell.v !== null ? String(cell.v) : '';
   const mDate = vRaw.match(/^Date\((\d+),(\d+),(\d+)/); // bulan di sini 0-indexed (gaya JS Date)
   if(mDate){
@@ -901,39 +904,58 @@ function rosterCandidateSheetNames(){
   }
   return names;
 }
+/* Google TIDAK mengirim header Access-Control-Allow-Origin di endpoint gviz/tq, sehingga
+   fetch()/XHR biasa dari domain lain (mis. GitHub Pages) selalu diblokir CORS oleh browser -
+   meski sheet-nya sudah public. Solusinya: muat lewat <script> tag (JSONP), karena tag <script>
+   tidak tunduk pada aturan same-origin/CORS milik fetch(). */
+let rosterJsonpSeq = 0;
+function fetchRosterSheetJSONP(sheetName, timeoutMs){
+  timeoutMs = timeoutMs || 12000;
+  return new Promise((resolve, reject) => {
+    const cbName = 'rosterJsonpCb_' + (rosterJsonpSeq++) + '_' + Date.now();
+    const url = `https://docs.google.com/spreadsheets/d/${ROSTER_SHEET_ID}/gviz/tq?tqx=out:json;responseHandler=${cbName}&sheet=${encodeURIComponent(sheetName)}`;
+    const script = document.createElement('script');
+    let done = false;
+    const timer = setTimeout(() => {
+      if(done) return;
+      done = true;
+      cleanup();
+      const e = new Error('timeout memuat tab "' + sheetName + '"');
+      e.rosterErrorType = 'network';
+      reject(e);
+    }, timeoutMs);
+    function cleanup(){
+      clearTimeout(timer);
+      try{ delete window[cbName]; }catch(_){ window[cbName] = undefined; }
+      if(script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[cbName] = function(json){
+      if(done) return;
+      done = true;
+      cleanup();
+      resolve(json);
+    };
+    script.onerror = () => {
+      if(done) return;
+      done = true;
+      cleanup();
+      const e = new Error('tab "' + sheetName + '" tidak ditemukan / sheet tidak bisa diakses');
+      e.rosterErrorType = 'notfound';
+      reject(e);
+    };
+    script.src = url;
+    document.head.appendChild(script);
+  });
+}
 async function fetchRosterSheetByName(sheetName){
-  const url = `https://docs.google.com/spreadsheets/d/${ROSTER_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
-  let res;
-  try{
-    res = await fetch(url);
-  }catch(netErr){
-    const e = new Error('gagal terhubung ke Google Sheets (jaringan)');
-    e.rosterErrorType = 'network';
-    throw e;
-  }
-  if(res.status === 401 || res.status === 403){
-    const e = new Error('akses ditolak (401/403)');
-    e.rosterErrorType = 'private';
-    throw e;
-  }
-  if(!res.ok){
-    const e = new Error('tab "' + sheetName + '" tidak ditemukan (HTTP ' + res.status + ')');
+  const json = await fetchRosterSheetJSONP(sheetName);
+  if(!json || json.status === 'error' || !json.table){
+    const detail = json && json.errors && json.errors[0] && (json.errors[0].detailed_message || json.errors[0].message);
+    const e = new Error('tab "' + sheetName + '" tidak ditemukan di sheet' + (detail ? (' (' + detail + ')') : ''));
     e.rosterErrorType = 'notfound';
     throw e;
   }
-  const text = await res.text();
-  if(/accounts\.google\.com|ServiceLogin|Sign in/i.test(text) && !/setResponse/.test(text)){
-    // Google mengembalikan halaman login, bukan JSON -> sheet belum di-share publik
-    const e = new Error('sheet tidak publik / butuh login');
-    e.rosterErrorType = 'private';
-    throw e;
-  }
-  if(!/setResponse/.test(text)){
-    const e = new Error('tab "' + sheetName + '" tidak ditemukan di sheet');
-    e.rosterErrorType = 'notfound';
-    throw e;
-  }
-  const rows = parseGvizText(text);
+  const rows = (json.table.rows || []).map(r => (r.c || []).map(cell => cell || null));
   return parseRosterBlocks(rows);
 }
 async function loadRoster(){
@@ -957,16 +979,15 @@ async function loadRoster(){
     merged.sort((a,b) => a.date - b.date);
     if(merged.length === 0){
       // Semua percobaan gagal - diagnosa penyebab paling mungkin dari jenis error yang terkumpul
-      const allPrivate = errorTypes.length > 0 && errorTypes.every(t => t === 'private');
-      const allNetwork = errorTypes.length > 0 && errorTypes.every(t => t === 'network');
-      const anyPrivate = errorTypes.includes('private');
+      const allTimeout = errorTypes.length > 0 && errorTypes.every(t => t === 'network');
+      const allNotfound = errorTypes.length > 0 && errorTypes.every(t => t === 'notfound');
       let msg;
-      if(allNetwork){
-        msg = '⚠️ Tidak bisa terhubung ke Google Sheets. Cek koneksi internet Anda lalu coba "Sinkron Ulang".';
-      } else if(allPrivate || anyPrivate){
-        msg = '⚠️ Google Sheets menolak akses (kemungkinan sheet belum dibagikan publik). Buka sheet roster → Share → ubah ke "Anyone with the link – Viewer", lalu coba "Sinkron Ulang".';
+      if(allTimeout){
+        msg = '⚠️ Semua tab timeout saat dimuat. Ini biasanya tanda sheet BELUM di-share publik. Buka sheet roster → Share → ubah ke "Anyone with the link – Viewer", lalu klik "Sinkron Ulang". Bisa juga karena koneksi internet lambat/terputus.';
+      } else if(allNotfound){
+        msg = '⚠️ Tidak ada tab roster yang cocok di sheet (dicoba: ' + candidates.join(', ') + '). Pastikan nama tab persis mengikuti format "NamaBulan-Tahun" (contoh: July-2026), dan sheet sudah di-share "Anyone with the link – Viewer".';
       } else {
-        msg = '⚠️ Tidak ada tab roster yang cocok di sheet (dicoba: ' + candidates.join(', ') + '). Pastikan nama tab persis mengikuti format "NamaBulan-Tahun" (contoh: July-2026).';
+        msg = '⚠️ Gagal sinkron roster (dicoba: ' + candidates.join(', ') + '). Cek apakah sheet sudah di-share "Anyone with the link – Viewer" dan nama tab sesuai format "NamaBulan-Tahun".';
       }
       const e = new Error(msg);
       throw e;
