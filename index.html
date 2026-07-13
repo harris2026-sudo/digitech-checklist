@@ -903,10 +903,36 @@ function rosterCandidateSheetNames(){
 }
 async function fetchRosterSheetByName(sheetName){
   const url = `https://docs.google.com/spreadsheets/d/${ROSTER_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
-  const res = await fetch(url);
-  if(!res.ok) throw new Error('tab "' + sheetName + '" tidak ditemukan');
+  let res;
+  try{
+    res = await fetch(url);
+  }catch(netErr){
+    const e = new Error('gagal terhubung ke Google Sheets (jaringan)');
+    e.rosterErrorType = 'network';
+    throw e;
+  }
+  if(res.status === 401 || res.status === 403){
+    const e = new Error('akses ditolak (401/403)');
+    e.rosterErrorType = 'private';
+    throw e;
+  }
+  if(!res.ok){
+    const e = new Error('tab "' + sheetName + '" tidak ditemukan (HTTP ' + res.status + ')');
+    e.rosterErrorType = 'notfound';
+    throw e;
+  }
   const text = await res.text();
-  if(!/setResponse/.test(text)) throw new Error('tab "' + sheetName + '" tidak valid');
+  if(/accounts\.google\.com|ServiceLogin|Sign in/i.test(text) && !/setResponse/.test(text)){
+    // Google mengembalikan halaman login, bukan JSON -> sheet belum di-share publik
+    const e = new Error('sheet tidak publik / butuh login');
+    e.rosterErrorType = 'private';
+    throw e;
+  }
+  if(!/setResponse/.test(text)){
+    const e = new Error('tab "' + sheetName + '" tidak ditemukan di sheet');
+    e.rosterErrorType = 'notfound';
+    throw e;
+  }
   const rows = parseGvizText(text);
   return parseRosterBlocks(rows);
 }
@@ -916,7 +942,11 @@ async function loadRoster(){
   banner.className = 'roster-sync-banner syncing';
   try{
     const candidates = rosterCandidateSheetNames();
-    const attempts = candidates.map(name => fetchRosterSheetByName(name).catch(() => []));
+    const errorTypes = [];
+    const attempts = candidates.map(name => fetchRosterSheetByName(name).catch(err => {
+      errorTypes.push(err && err.rosterErrorType || 'unknown');
+      return [];
+    }));
     const results = await Promise.all(attempts);
     const merged = [];
     const seen = new Set();
@@ -925,14 +955,29 @@ async function loadRoster(){
       if(!seen.has(key)){ seen.add(key); merged.push(d); }
     });
     merged.sort((a,b) => a.date - b.date);
-    if(merged.length === 0) throw new Error('Tidak ada tab roster yang cocok (dicoba: ' + candidates.join(', ') + ')');
+    if(merged.length === 0){
+      // Semua percobaan gagal - diagnosa penyebab paling mungkin dari jenis error yang terkumpul
+      const allPrivate = errorTypes.length > 0 && errorTypes.every(t => t === 'private');
+      const allNetwork = errorTypes.length > 0 && errorTypes.every(t => t === 'network');
+      const anyPrivate = errorTypes.includes('private');
+      let msg;
+      if(allNetwork){
+        msg = '⚠️ Tidak bisa terhubung ke Google Sheets. Cek koneksi internet Anda lalu coba "Sinkron Ulang".';
+      } else if(allPrivate || anyPrivate){
+        msg = '⚠️ Google Sheets menolak akses (kemungkinan sheet belum dibagikan publik). Buka sheet roster → Share → ubah ke "Anyone with the link – Viewer", lalu coba "Sinkron Ulang".';
+      } else {
+        msg = '⚠️ Tidak ada tab roster yang cocok di sheet (dicoba: ' + candidates.join(', ') + '). Pastikan nama tab persis mengikuti format "NamaBulan-Tahun" (contoh: July-2026).';
+      }
+      const e = new Error(msg);
+      throw e;
+    }
     rosterDays = merged;
     rosterLastSync = new Date();
     rosterLoaded = true;
     banner.textContent = '✓ Live-sync dari Google Sheets · terakhir sinkron ' + rosterLastSync.toLocaleTimeString('id-ID');
     banner.className = 'roster-sync-banner ok';
   }catch(e){
-    banner.textContent = '⚠️ Gagal sinkron ke Google Sheets: ' + e.message + '. Cek koneksi internet / akses sheet.';
+    banner.textContent = e.message;
     banner.className = 'roster-sync-banner error';
     showToast('✗ Gagal sinkron roster', 'error');
     if(!rosterLoaded) return;
