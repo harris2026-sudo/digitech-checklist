@@ -742,7 +742,6 @@ const ROSTER_PHOTO_LG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBD
 
 /* ================= ROSTER TEAM MONITORING (live-sync Google Sheets) ================= */
 const ROSTER_SHEET_ID = '1GO4bxREj-BN45e5XFll-mrov23hSTFokKjtby1LiwJg';
-const ROSTER_GID_RANGE = 8; // coba gid 0..7 (cukup untuk ±8 bulan tab), auto-skip yang tidak ada
 const ROSTER_PERSONNEL = [
   { code:'NFS', name:'Nico Fahryan Sandy', color:'#1F4E79', photo: ROSTER_PHOTO_NFS },
   { code:'LG',  name:'Lukman Gunawan',     color:'#1E7A34', photo: ROSTER_PHOTO_LG },
@@ -889,12 +888,25 @@ function parseRosterBlocks(rows){
   }
   return days;
 }
-async function fetchRosterGid(gid){
-  const url = `https://docs.google.com/spreadsheets/d/${ROSTER_SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`;
+/* Nama tab di sheet mengikuti pola "MonthName-Year" (contoh: "May-2026", "June-2026", "July-2026")
+   sesuai struktur asli file Harris. gid TIDAK dipakai lagi karena gid bukan angka urut per tab -
+   hanya tab pertama yang gid-nya pasti 0, tab lain dapat ID acak sehingga tebakan gid 1..7 salah sasaran. */
+const ROSTER_MONTH_NAMES_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function rosterCandidateSheetNames(){
+  const now = new Date();
+  const names = [];
+  for(let offset=-2; offset<=6; offset++){
+    const d = new Date(now.getFullYear(), now.getMonth()+offset, 1);
+    names.push(`${ROSTER_MONTH_NAMES_EN[d.getMonth()]}-${d.getFullYear()}`);
+  }
+  return names;
+}
+async function fetchRosterSheetByName(sheetName){
+  const url = `https://docs.google.com/spreadsheets/d/${ROSTER_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
   const res = await fetch(url);
-  if(!res.ok) throw new Error('gid ' + gid + ' tidak ditemukan');
+  if(!res.ok) throw new Error('tab "' + sheetName + '" tidak ditemukan');
   const text = await res.text();
-  if(/Invalid|not found/i.test(text) && !/setResponse/.test(text)) throw new Error('gid ' + gid + ' invalid');
+  if(!/setResponse/.test(text)) throw new Error('tab "' + sheetName + '" tidak valid');
   const rows = parseGvizText(text);
   return parseRosterBlocks(rows);
 }
@@ -903,10 +915,8 @@ async function loadRoster(){
   banner.textContent = 'Menyinkronkan data roster dari Google Sheets...';
   banner.className = 'roster-sync-banner syncing';
   try{
-    const attempts = [];
-    for(let gid=0; gid<ROSTER_GID_RANGE; gid++){
-      attempts.push(fetchRosterGid(gid).catch(() => []));
-    }
+    const candidates = rosterCandidateSheetNames();
+    const attempts = candidates.map(name => fetchRosterSheetByName(name).catch(() => []));
     const results = await Promise.all(attempts);
     const merged = [];
     const seen = new Set();
@@ -915,7 +925,7 @@ async function loadRoster(){
       if(!seen.has(key)){ seen.add(key); merged.push(d); }
     });
     merged.sort((a,b) => a.date - b.date);
-    if(merged.length === 0) throw new Error('Tidak ada data roster ditemukan di sheet manapun');
+    if(merged.length === 0) throw new Error('Tidak ada tab roster yang cocok (dicoba: ' + candidates.join(', ') + ')');
     rosterDays = merged;
     rosterLastSync = new Date();
     rosterLoaded = true;
