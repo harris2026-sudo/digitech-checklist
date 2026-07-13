@@ -41,9 +41,9 @@
     background:rgba(255,255,255,.15);color:#fff;
   }
 
-  .tabs{display:flex;gap:6px;margin-bottom:14px;}
+  .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
   .tab{
-    flex:1;text-align:center;padding:10px;border-radius:8px;background:#fff;color:var(--navy);
+    flex:1;min-width:130px;text-align:center;padding:10px;border-radius:8px;background:#fff;color:var(--navy);
     font-weight:bold;font-size:13px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);
     border:2px solid transparent;
   }
@@ -186,6 +186,48 @@
   .fu-actions select{border:1px solid #c7d3e0;border-radius:6px;padding:4px 6px;font-size:11.5px;font-family:Arial;}
   .fu-del{border:1.5px solid #e39aa1;background:var(--red-bg);color:var(--red-fg);border-radius:14px;padding:5px 14px;font-size:11.5px;font-weight:bold;cursor:pointer;font-family:Arial;}
   .fu-del:hover{background:#ffb3bd;}
+  /* ---- Roster ---- */
+  .roster-legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .roster-chip{
+    display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--hilite);
+    border-radius:20px;padding:5px 12px;font-size:12px;font-weight:bold;color:var(--navy);
+    box-shadow:0 1px 3px rgba(0,0,0,.06);
+  }
+  .roster-chip .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .roster-sync-banner{font-size:11.5px;padding:7px 12px;border-radius:6px;margin-bottom:12px;font-weight:bold;}
+  .roster-sync-banner.syncing{background:var(--hilite);color:var(--navy);}
+  .roster-sync-banner.ok{background:var(--green-bg);color:var(--green);}
+  .roster-sync-banner.error{background:var(--red-bg);color:var(--red-fg);}
+  .roster-toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .roster-modeselect{display:flex;gap:6px;}
+  .roster-modeselect button{
+    border:none;background:#fff;color:var(--navy);font-weight:bold;font-size:12px;padding:8px 14px;
+    border-radius:8px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);
+  }
+  .roster-modeselect button.active{background:var(--navy);color:#fff;}
+  .roster-empty{background:#fff;border-radius:10px;padding:30px 16px;text-align:center;color:var(--grey-fg);font-size:13px;}
+  .roster-daycard{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:16px;margin-bottom:12px;border:2px solid transparent;}
+  .roster-daycard.highlight{border-color:var(--accent);box-shadow:0 2px 8px rgba(46,95,163,.18);}
+  .roster-daycard-date{font-weight:bold;color:var(--navy);font-size:14px;margin-bottom:10px;}
+  .roster-shift-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--zebra);font-size:13px;}
+  .roster-shift-row:first-of-type{border-top:none;}
+  .roster-shift-row.muted{color:var(--grey-fg);font-size:12px;}
+  .roster-shift-label{flex:0 0 170px;color:var(--grey-fg);font-size:12px;}
+  .roster-shift-name{font-weight:bold;color:var(--navy);}
+  .roster-cell-badge{
+    display:inline-block;min-width:34px;text-align:center;color:#fff;font-weight:bold;
+    font-size:11px;padding:3px 8px;border-radius:12px;
+  }
+  .roster-week-cards{display:flex;flex-direction:column;}
+  .roster-week{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px;overflow:hidden;}
+  .roster-week-title{background:var(--accent);color:#fff;padding:10px 14px;font-weight:bold;font-size:13px;}
+  .roster-table-wrap{overflow-x:auto;}
+  table.roster-table{border-collapse:collapse;width:100%;font-size:12px;}
+  table.roster-table th, table.roster-table td{border:1px solid #E2E8F0;padding:7px 8px;text-align:center;white-space:nowrap;}
+  table.roster-table thead th{background:var(--navy);color:#fff;font-weight:bold;}
+  table.roster-table td.rowlabel{background:var(--hilite);color:var(--navy);font-weight:bold;text-align:left;}
+  table.roster-table tbody tr:nth-child(odd){background:var(--zebra);}
+  table.roster-table tbody tr.is-today td{background:#DCE9FA;}
   /* ---- Toast notifikasi ---- */
   #toastWrap{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
   .toast{
@@ -213,6 +255,7 @@
     <div class="tab active" data-view="harian">✅ Checklist Harian</div>
     <div class="tab" data-view="followup">🔄 Follow Up</div>
     <div class="tab" data-view="rekap">📊 Rekap</div>
+    <div class="tab" data-view="roster">🗓️ Roster</div>
   </div>
 
   <!-- ================= VIEW: HARIAN ================= -->
@@ -337,27 +380,103 @@
     <div id="rekapFollowList"></div>
   </div>
 
+  <!-- ================= VIEW: ROSTER ================= -->
+  <div class="view" id="view-roster">
+    <div class="roster-legend">
+      <div class="roster-chip"><span class="dot" style="background:#1F4E79"></span>NFS — Nico Fahryan Sandy</div>
+      <div class="roster-chip"><span class="dot" style="background:#1E7A34"></span>LG — Lukman Gunawan</div>
+      <div class="roster-chip"><span class="dot" style="background:#7F6000"></span>TW — Taufik Wirayudha</div>
+      <div class="roster-chip"><span class="dot" style="background:#9C0006"></span>AS — Adhe Setiawan</div>
+    </div>
+    <div id="rosterSyncBanner" class="roster-sync-banner syncing">Menyinkronkan data roster dari Google Sheets...</div>
+    <div class="roster-toolbar">
+      <div class="roster-modeselect">
+        <button data-mode="today" class="active">Hari Ini</button>
+        <button data-mode="week">Minggu Ini</button>
+        <button data-mode="month">Bulan Ini</button>
+      </div>
+      <button class="btn btn-ghost" id="rosterRefreshBtn">↻ Sinkron Ulang</button>
+    </div>
+    <div id="rosterContent"></div>
+  </div>
+
   <footer>Maintain. Monitor. Improve. — Digitech Monitoring Team</footer>
 </div>
 
 <script>
-/* ---------------- STORAGE LAYER (window.storage only, no local fallback) ----------------
-   Catatan: window.storage bisa saja belum siap tepat saat script ini pertama kali jalan
-   (di-inject sedikit belakangan oleh host). Karena itu store TIDAK di-cache sebagai
-   referensi statis di awal; setiap pemanggilan mengecek window.storage secara langsung
-   (live) saat itu terjadi, sehingga tidak salah gagal hanya karena masalah timing. */
-function requireStorage(){
-  if (typeof window.storage === 'undefined' || typeof window.storage.get !== 'function') {
-    throw new Error('window.storage tidak tersedia. Aplikasi ini wajib menggunakan window.storage (tanpa localStorage/backup lokal).');
+/* ============================================================
+   KONFIGURASI BACKEND STORAGE
+   App ini di-hosting sendiri (GitHub Pages), sehingga window.storage
+   (fitur khusus Claude.ai) tidak tersedia. Sebagai gantinya, semua
+   data (checklist harian, follow up, label, dsb) disimpan ke Google
+   Sheets lewat Google Apps Script Web App — supaya sinkron antar
+   device & antar personil tim (Nico, Lukman, Taufik, Adhe).
+
+   CARA ISI:
+   1. Deploy backend "Code.gs" sebagai Web App (lihat panduan di file itu).
+   2. Copy URL Web App-nya (format: https://script.google.com/macros/s/XXXX/exec)
+   3. Paste ke APPS_SCRIPT_URL di bawah ini, ganti nilai kosong "".
+   ============================================================ */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0EpZSa7vIfM4Cer00gK04wR0bdStSN6lCMk_6rFENdWt3jEWyErCm2r1RtegruGmQ/exec"; // <-- WAJIB DIISI setelah deploy Apps Script
+
+/* ---------------- STORAGE LAYER (backend Google Sheets via Apps Script) ---------------- */
+function requireStorageConfig(){
+  if (!APPS_SCRIPT_URL) {
+    throw new Error('APPS_SCRIPT_URL belum diisi. Deploy backend Code.gs lalu isi URL-nya di config script.');
   }
-  return window.storage;
 }
-const store = {
-  get:    (...args) => requireStorage().get(...args),
-  set:    (...args) => requireStorage().set(...args),
-  delete: (...args) => requireStorage().delete(...args),
-  list:   (...args) => requireStorage().list(...args)
-};
+async function gsGet(key){
+  requireStorageConfig();
+  const res = await fetch(`${APPS_SCRIPT_URL}?action=get&key=${encodeURIComponent(key)}`);
+  if(!res.ok) throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
+  const data = await res.json();
+  if(data.error === 'not_found') throw new Error('not found');
+  if(data.error) throw new Error(data.message || data.error);
+  return { key: data.key, value: data.value, shared: true };
+}
+async function gsSet(key, value){
+  requireStorageConfig();
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // hindari CORS preflight ke Apps Script
+    body: JSON.stringify({ action:'set', key, value })
+  });
+  if(!res.ok) throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
+  const data = await res.json();
+  if(data.error) throw new Error(data.message || data.error);
+  return { key: data.key, value: data.value, shared: true };
+}
+async function gsDelete(key){
+  requireStorageConfig();
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action:'delete', key })
+  });
+  if(!res.ok) throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
+  const data = await res.json();
+  if(data.error) throw new Error(data.message || data.error);
+  return { key: data.key, deleted: data.deleted, shared: true };
+}
+async function gsList(prefix=''){
+  requireStorageConfig();
+  const res = await fetch(`${APPS_SCRIPT_URL}?action=list&prefix=${encodeURIComponent(prefix)}`);
+  if(!res.ok) throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
+  const data = await res.json();
+  if(data.error) throw new Error(data.message || data.error);
+  return { keys: data.keys || [], prefix, shared: true };
+}
+const store = { get: gsGet, set: gsSet, delete: gsDelete, list: gsList };
+
+/* Banner peringatan kalau backend belum dikonfigurasi */
+function checkStorageConfigBanner(){
+  if (APPS_SCRIPT_URL) return;
+  const b = document.createElement('div');
+  b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#B3261E;color:#fff;padding:10px 16px;font-size:13px;font-weight:bold;text-align:center;font-family:Arial;';
+  b.textContent = '⚠️ Backend belum dikonfigurasi: isi APPS_SCRIPT_URL di script agar data bisa tersimpan.';
+  document.body.prepend(b);
+}
+checkStorageConfigBanner();
 
 /* ---------------- TOAST NOTIFIKASI ---------------- */
 function showToast(message, type){
@@ -590,6 +709,202 @@ function computeDayStats(data){
   return { counts, total, applicable, pct };
 }
 
+/* ================= ROSTER TEAM MONITORING (live-sync Google Sheets) ================= */
+const ROSTER_SHEET_ID = '1GO4bxREj-BN45e5XFll-mrov23hSTFokKjtby1LiwJg';
+const ROSTER_GID_RANGE = 8; // coba gid 0..7 (cukup untuk ±8 bulan tab), auto-skip yang tidak ada
+const ROSTER_PERSONNEL = [
+  { code:'NFS', name:'Nico Fahryan Sandy', color:'#1F4E79' },
+  { code:'LG',  name:'Lukman Gunawan',     color:'#1E7A34' },
+  { code:'TW',  name:'Taufik Wirayudha',   color:'#7F6000' },
+  { code:'AS',  name:'Adhe Setiawan',      color:'#9C0006' }
+];
+const ROSTER_MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const ROSTER_MONTHS_EN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+
+let rosterDays = [];        // flat list of {date, weekday, shift1, shift2, shift3, backup, cuti}
+let rosterLastSync = null;
+let rosterMode = 'today';   // today | week | month
+let rosterLoaded = false;
+
+function rosterPersonName(code){
+  const p = ROSTER_PERSONNEL.find(p => p.code === code);
+  return p ? p.name : code;
+}
+function rosterPersonColor(code){
+  const p = ROSTER_PERSONNEL.find(p => p.code === code);
+  return p ? p.color : '#888';
+}
+function parseRosterSheetDate(str){
+  if(!str) return null;
+  const m = String(str).trim().match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/);
+  if(!m) return null;
+  const day = parseInt(m[1],10);
+  const mon = ROSTER_MONTHS_EN[m[2]];
+  let year = parseInt(m[3],10);
+  if(year < 100) year += 2000;
+  if(mon === undefined) return null;
+  return new Date(year, mon, day);
+}
+function parseGvizText(text){
+  const m = text.match(/setResponse\(([\s\S]*)\);?\s*$/);
+  if(!m) throw new Error('Format respons Google Sheets tidak dikenali');
+  const json = JSON.parse(m[1]);
+  if(!json.table || !json.table.rows) return [];
+  return json.table.rows.map(r => (r.c || []).map(cell => {
+    if(!cell) return '';
+    if(cell.f !== undefined && cell.f !== null) return cell.f;
+    return cell.v !== undefined && cell.v !== null ? cell.v : '';
+  }));
+}
+function parseRosterBlocks(rows){
+  const days = [];
+  for(let i=0;i<rows.length;i++){
+    const row = rows[i] || [];
+    if(String(row[0]||'').trim() === 'Shift'){
+      const dateRow = rows[i+1] || [];
+      const cols = [];
+      for(let c=1;c<row.length;c++){
+        if(row[c]) cols.push({ weekday: row[c], dateStr: dateRow[c] || '' });
+      }
+      if(cols.length === 0) continue;
+      const rec = { shift1:[], shift2:[], shift3:[], backup:[], cuti:[] };
+      let r = i+2;
+      while(r < rows.length){
+        const label = String((rows[r]||[])[0] || '').trim();
+        if(!label || label === 'Shift') break;
+        const values = cols.map((_, idx) => (rows[r][idx+1] || '-'));
+        if(/shift\s*1/i.test(label)) rec.shift1 = values;
+        else if(/shift\s*2/i.test(label)) rec.shift2 = values;
+        else if(/shift\s*3/i.test(label)) rec.shift3 = values;
+        else if(/backup/i.test(label)) rec.backup = values;
+        else if(/cuti/i.test(label)) rec.cuti = values;
+        r++;
+      }
+      cols.forEach((col, idx) => {
+        const date = parseRosterSheetDate(col.dateStr);
+        if(!date) return;
+        days.push({
+          date, weekday: col.weekday,
+          shift1: rec.shift1[idx] || '-', shift2: rec.shift2[idx] || '-',
+          shift3: rec.shift3[idx] || '-', backup: rec.backup[idx] || '-', cuti: rec.cuti[idx] || '-'
+        });
+      });
+      i = r-1;
+    }
+  }
+  return days;
+}
+async function fetchRosterGid(gid){
+  const url = `https://docs.google.com/spreadsheets/d/${ROSTER_SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('gid ' + gid + ' tidak ditemukan');
+  const text = await res.text();
+  if(/Invalid|not found/i.test(text) && !/setResponse/.test(text)) throw new Error('gid ' + gid + ' invalid');
+  const rows = parseGvizText(text);
+  return parseRosterBlocks(rows);
+}
+async function loadRoster(){
+  const banner = document.getElementById('rosterSyncBanner');
+  banner.textContent = 'Menyinkronkan data roster dari Google Sheets...';
+  banner.className = 'roster-sync-banner syncing';
+  try{
+    const attempts = [];
+    for(let gid=0; gid<ROSTER_GID_RANGE; gid++){
+      attempts.push(fetchRosterGid(gid).catch(() => []));
+    }
+    const results = await Promise.all(attempts);
+    const merged = [];
+    const seen = new Set();
+    results.flat().forEach(d => {
+      const key = d.date.toDateString();
+      if(!seen.has(key)){ seen.add(key); merged.push(d); }
+    });
+    merged.sort((a,b) => a.date - b.date);
+    if(merged.length === 0) throw new Error('Tidak ada data roster ditemukan di sheet manapun');
+    rosterDays = merged;
+    rosterLastSync = new Date();
+    rosterLoaded = true;
+    banner.textContent = '✓ Live-sync dari Google Sheets · terakhir sinkron ' + rosterLastSync.toLocaleTimeString('id-ID');
+    banner.className = 'roster-sync-banner ok';
+  }catch(e){
+    banner.textContent = '⚠️ Gagal sinkron ke Google Sheets: ' + e.message + '. Cek koneksi internet / akses sheet.';
+    banner.className = 'roster-sync-banner error';
+    showToast('✗ Gagal sinkron roster', 'error');
+    if(!rosterLoaded) return;
+  }
+  renderRoster();
+}
+function sameDay(a,b){ return a.toDateString() === b.toDateString(); }
+function startOfWeekBlockFor(date){
+  // cari blok 8-hari (sesuai struktur sheet) yang memuat tanggal ini
+  // fallback: pakai 7 hari sebelum s/d sesudah bila tidak ada match blok eksplisit
+  return rosterDays.filter(d => {
+    const diff = Math.round((d.date - date) / 86400000);
+    return diff >= -3 && diff <= 3;
+  });
+}
+function renderRoster(){
+  document.querySelectorAll('.roster-modeselect button').forEach(b => b.classList.toggle('active', b.dataset.mode === rosterMode));
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayRec = rosterDays.find(d => sameDay(d.date, today));
+  const box = document.getElementById('rosterContent');
+
+  if(rosterMode === 'today'){
+    if(!todayRec){
+      box.innerHTML = `<div class="roster-empty">Tidak ada data jadwal untuk hari ini (${today.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}) di sheet.</div>`;
+      return;
+    }
+    box.innerHTML = rosterTodayCard(todayRec, true);
+    return;
+  }
+
+  if(rosterMode === 'week'){
+    const days = startOfWeekBlockFor(today);
+    if(days.length === 0){ box.innerHTML = `<div class="roster-empty">Tidak ada data jadwal minggu ini.</div>`; return; }
+    box.innerHTML = `<div class="roster-week-cards">${days.map(d => rosterTodayCard(d, sameDay(d.date, today))).join('')}</div>`;
+    return;
+  }
+
+  if(rosterMode === 'month'){
+    const days = rosterDays.filter(d => d.date.getFullYear()===today.getFullYear() && d.date.getMonth()===today.getMonth());
+    if(days.length === 0){ box.innerHTML = `<div class="roster-empty">Tidak ada data jadwal untuk bulan ini.</div>`; return; }
+    const rows = days.map(d => `
+      <tr class="${sameDay(d.date, today) ? 'is-today' : ''}">
+        <td class="rowlabel">${d.date.getDate()} ${ROSTER_MONTHS_ID[d.date.getMonth()].slice(0,3)}<br><span style="font-weight:normal">${d.weekday}</span></td>
+        <td><span class="roster-cell-badge" style="background:${rosterPersonColor(d.shift1)}">${d.shift1}</span></td>
+        <td><span class="roster-cell-badge" style="background:${rosterPersonColor(d.shift2)}">${d.shift2}</span></td>
+        <td><span class="roster-cell-badge" style="background:${rosterPersonColor(d.shift3)}">${d.shift3}</span></td>
+      </tr>`).join('');
+    box.innerHTML = `
+      <div class="roster-week">
+        <div class="roster-week-title">${ROSTER_MONTHS_ID[today.getMonth()]} ${today.getFullYear()}</div>
+        <div class="roster-table-wrap">
+          <table class="roster-table">
+            <thead><tr><th class="rowlabel-th">Tanggal</th><th>Shift 1</th><th>Shift 2</th><th>Shift 3</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+}
+function rosterTodayCard(rec, highlight){
+  return `
+    <div class="roster-daycard ${highlight ? 'highlight' : ''}">
+      <div class="roster-daycard-date">${rec.weekday}, ${rec.date.getDate()} ${ROSTER_MONTHS_ID[rec.date.getMonth()]} ${rec.date.getFullYear()}</div>
+      <div class="roster-daycard-shifts">
+        <div class="roster-shift-row"><span class="roster-shift-label">Shift 1 (07:00–19:00)</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.shift1)}">${rec.shift1}</span><span class="roster-shift-name">${rosterPersonName(rec.shift1)}</span></div>
+        <div class="roster-shift-row"><span class="roster-shift-label">Shift 2 (13:00–01:00)</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.shift2)}">${rec.shift2}</span><span class="roster-shift-name">${rosterPersonName(rec.shift2)}</span></div>
+        <div class="roster-shift-row"><span class="roster-shift-label">Shift 3 (20:00–08:00)</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.shift3)}">${rec.shift3}</span><span class="roster-shift-name">${rosterPersonName(rec.shift3)}</span></div>
+        ${rec.backup && rec.backup !== '-' ? `<div class="roster-shift-row muted"><span class="roster-shift-label">Backup</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.backup)}">${rec.backup}</span><span class="roster-shift-name">${rosterPersonName(rec.backup)}</span></div>` : ''}
+        ${rec.cuti && rec.cuti !== '-' ? `<div class="roster-shift-row muted"><span class="roster-shift-label">Cuti</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.cuti)}">${rec.cuti}</span><span class="roster-shift-name">${rosterPersonName(rec.cuti)}</span></div>` : ''}
+      </div>
+    </div>`;
+}
+document.querySelectorAll('.roster-modeselect button').forEach(btn => {
+  btn.onclick = () => { rosterMode = btn.dataset.mode; renderRoster(); };
+});
+document.getElementById('rosterRefreshBtn').onclick = () => loadRoster();
+
 /* ---------------- TAB SWITCHING ---------------- */
 document.querySelectorAll('.tab').forEach(tab => {
   tab.onclick = () => {
@@ -599,6 +914,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.getElementById('view-' + tab.dataset.view).classList.add('active');
     if(tab.dataset.view === 'rekap') renderRekap();
     if(tab.dataset.view === 'followup') renderFollowUp();
+    if(tab.dataset.view === 'roster') loadRoster();
   };
 });
 
