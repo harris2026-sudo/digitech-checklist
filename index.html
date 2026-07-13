@@ -906,61 +906,86 @@ function rosterCandidateSheetNames(){
 }
 /* Google TIDAK mengirim header Access-Control-Allow-Origin di endpoint gviz/tq, sehingga
    fetch()/XHR biasa dari domain lain (mis. GitHub Pages) selalu diblokir CORS oleh browser -
-   meski sheet-nya sudah public. Solusinya: muat lewat <script> tag (JSONP), karena tag <script>
-   tidak tunduk pada aturan same-origin/CORS milik fetch(). */
-let rosterJsonpSeq = 0;
-function fetchRosterSheetJSONP(sheetName, timeoutMs){
-  timeoutMs = timeoutMs || 12000;
-  return new Promise((resolve, reject) => {
-    const cbName = 'rosterJsonpCb_' + (rosterJsonpSeq++) + '_' + Date.now();
-    /* PENTING: di dalam parameter tqx, pasangan key:value dipisah TITIK DUA, bukan '='.
-       Format salah (out:json;responseHandler=X) membuat Google mengabaikan nama handler kita
-       dan diam-diam memanggil handler default google.visualization.Query.setResponse yang
-       tidak pernah kita definisikan -> callback tidak pernah terpanggil -> selalu timeout. */
-    const url = `https://docs.google.com/spreadsheets/d/${ROSTER_SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${cbName}&sheet=${encodeURIComponent(sheetName)}`;
+   meski sheet-nya sudah public. JSONP manual (rakit sendiri parameter tqx/responseHandler)
+   ternyata rawan salah format. Solusi paling andal: pakai library RESMI Google Charts
+   (google.visualization.Query) yang menangani sendiri detail JSONP/callback/escaping-nya -
+   kita tinggal kirim query dan baca hasilnya. */
+let rosterGChartsPromise = null;
+function loadGoogleChartsOnce(){
+  if(rosterGChartsPromise) return rosterGChartsPromise;
+  rosterGChartsPromise = new Promise((resolve, reject) => {
+    if(window.google && window.google.visualization && window.google.visualization.Query){
+      resolve();
+      return;
+    }
     const script = document.createElement('script');
-    let done = false;
+    script.src = 'https://www.gstatic.com/charts/loader.js';
+    script.onerror = () => {
+      rosterGChartsPromise = null;
+      const e = new Error('gagal memuat pustaka Google Charts (cek koneksi internet)');
+      e.rosterErrorType = 'network';
+      reject(e);
+    };
+    script.onload = () => {
+      try{
+        google.charts.load('current', { packages: ['table'] });
+        google.charts.setOnLoadCallback(() => resolve());
+      }catch(err){
+        rosterGChartsPromise = null;
+        reject(err);
+      }
+    };
+    document.head.appendChild(script);
+  });
+  return rosterGChartsPromise;
+}
+async function fetchRosterSheetByName(sheetName){
+  await loadGoogleChartsOnce();
+  const url = `https://docs.google.com/spreadsheets/d/${ROSTER_SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}`;
+  return new Promise((resolve, reject) => {
+    let settled = false;
     const timer = setTimeout(() => {
-      if(done) return;
-      done = true;
-      cleanup();
+      if(settled) return;
+      settled = true;
       const e = new Error('timeout memuat tab "' + sheetName + '"');
       e.rosterErrorType = 'network';
       reject(e);
-    }, timeoutMs);
-    function cleanup(){
+    }, 15000);
+    try{
+      const query = new google.visualization.Query(url);
+      query.send(response => {
+        if(settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if(response.isError()){
+          const e = new Error('tab "' + sheetName + '" tidak ditemukan (' + response.getMessage() + (response.getDetailedMessage() ? ': ' + response.getDetailedMessage() : '') + ')');
+          e.rosterErrorType = 'notfound';
+          reject(e);
+          return;
+        }
+        const dt = response.getDataTable();
+        const numRows = dt.getNumberOfRows();
+        const numCols = dt.getNumberOfColumns();
+        const rows = [];
+        for(let r=0;r<numRows;r++){
+          const row = [];
+          for(let c=0;c<numCols;c++){
+            const v = dt.getValue(r,c);
+            const f = dt.getFormattedValue(r,c);
+            row.push(v===null && !f ? null : { v: v, f: f });
+          }
+          rows.push(row);
+        }
+        resolve(parseRosterBlocks(rows));
+      });
+    }catch(err){
+      if(settled) return;
+      settled = true;
       clearTimeout(timer);
-      try{ delete window[cbName]; }catch(_){ window[cbName] = undefined; }
-      if(script.parentNode) script.parentNode.removeChild(script);
+      err.rosterErrorType = err.rosterErrorType || 'notfound';
+      reject(err);
     }
-    window[cbName] = function(json){
-      if(done) return;
-      done = true;
-      cleanup();
-      resolve(json);
-    };
-    script.onerror = () => {
-      if(done) return;
-      done = true;
-      cleanup();
-      const e = new Error('tab "' + sheetName + '" tidak ditemukan / sheet tidak bisa diakses');
-      e.rosterErrorType = 'notfound';
-      reject(e);
-    };
-    script.src = url;
-    document.head.appendChild(script);
   });
-}
-async function fetchRosterSheetByName(sheetName){
-  const json = await fetchRosterSheetJSONP(sheetName);
-  if(!json || json.status === 'error' || !json.table){
-    const detail = json && json.errors && json.errors[0] && (json.errors[0].detailed_message || json.errors[0].message);
-    const e = new Error('tab "' + sheetName + '" tidak ditemukan di sheet' + (detail ? (' (' + detail + ')') : ''));
-    e.rosterErrorType = 'notfound';
-    throw e;
-  }
-  const rows = (json.table.rows || []).map(r => (r.c || []).map(cell => cell || null));
-  return parseRosterBlocks(rows);
 }
 async function loadRoster(){
   const banner = document.getElementById('rosterSyncBanner');
