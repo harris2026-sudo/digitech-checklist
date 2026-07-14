@@ -281,7 +281,6 @@
     <h1 contenteditable="true" id="headerTitle">📋 Digitech Daily Checklist Assistant</h1>
     <p contenteditable="true" id="headerSubtitle">Site Reliability Engineer · Digital Sustainability Operation · PT Borneo Indobara</p>
     <span class="storage-badge" contenteditable="true" id="storageBadge">Site Reliability Engineer</span>
-    <div class="header-edit-hint" contenteditable="true" id="headerRemark">Digital Sustainability Operation</div>
   </header>
 
   <div class="tabs">
@@ -530,8 +529,7 @@ const HEADER_KEY = 'app:headerConfig';
 const headerFields = {
   headerTitle: document.getElementById('headerTitle'),
   headerSubtitle: document.getElementById('headerSubtitle'),
-  storageBadge: document.getElementById('storageBadge'),
-  headerRemark: document.getElementById('headerRemark')
+  storageBadge: document.getElementById('storageBadge')
 };
 let headerSaveTimer = null;
 function scheduleHeaderSave(){ clearTimeout(headerSaveTimer); headerSaveTimer = setTimeout(saveHeaderConfig, 500); }
@@ -539,8 +537,7 @@ async function saveHeaderConfig(){
   const data = {
     title: headerFields.headerTitle.textContent,
     subtitle: headerFields.headerSubtitle.textContent,
-    badge: headerFields.storageBadge.textContent,
-    remark: headerFields.headerRemark.textContent
+    badge: headerFields.storageBadge.textContent
   };
   try{ await store.set(HEADER_KEY, JSON.stringify(data)); }
   catch(e){ console.error('Gagal menyimpan header', e); }
@@ -553,7 +550,6 @@ async function loadHeaderConfig(){
       if(data.title) headerFields.headerTitle.textContent = data.title;
       if(data.subtitle) headerFields.headerSubtitle.textContent = data.subtitle;
       if(data.badge) headerFields.storageBadge.textContent = data.badge;
-      if(data.remark) headerFields.headerRemark.textContent = data.remark;
     }
   }catch(e){ /* belum ada data tersimpan, gunakan default */ }
 }
