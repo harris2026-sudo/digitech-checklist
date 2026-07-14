@@ -308,7 +308,13 @@
       </div>
       <div class="grow">
         <label>PIC</label>
-        <input type="text" id="picInput" value="Harris" style="width:100%;">
+        <select id="picInput" style="width:100%;">
+          <option>Harris</option>
+          <option>Nico Fahryan Sandy</option>
+          <option>Lukman Gunawan</option>
+          <option>Taufik Wirayudha</option>
+          <option>Adhe Setiawan</option>
+        </select>
       </div>
       <div style="align-self:flex-end;display:flex;gap:8px;">
         <button class="btn btn-ghost" id="resetBtn">Reset Hari Ini</button>
@@ -1145,7 +1151,7 @@ function renderShiftNowGrid(rec, now){
           <div>
             <div class="roster-shiftnow-label roster-editable-label" contenteditable="true" data-rkey="${titleKey}">${titleText}</div>
           </div>
-          <span class="roster-live-badge"><span class="roster-live-dot"></span>LIVE</span>
+          <span class="roster-live-badge"><span class="roster-live-dot"></span>ONDUTY</span>
         </div>
         <div class="roster-shiftnow-person">
           ${rosterAvatarHTML(code, isLive ? 56 : 44)}
@@ -1443,6 +1449,7 @@ document.getElementById('saveBtn').onclick = async () => {
 document.getElementById('dateInput').onchange = (e) => loadForDate(e.target.value);
 document.getElementById('shiftInput').onchange = scheduleSave;
 document.getElementById('picInput').oninput = scheduleSave;
+document.getElementById('picInput').onchange = scheduleSave;
 
 /* ================= REKAP ENGINE ================= */
 let rekapMode = 'week';
