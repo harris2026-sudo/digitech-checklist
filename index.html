@@ -68,10 +68,6 @@
   .summary .card{background:#fff;border-radius:10px;padding:10px 6px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08);}
   .summary .card .num{font-size:20px;font-weight:bold;color:var(--navy);}
   .summary .card .lab{font-size:9.5px;color:#667;margin-top:2px;text-transform:uppercase;letter-spacing:.3px;}
-  .summary .card.clickable{cursor:pointer;transition:transform .15s ease, box-shadow .15s ease;}
-  .summary .card.clickable:hover{box-shadow:0 3px 10px rgba(0,0,0,.14);transform:translateY(-2px);}
-  .summary .card.clickable.active{background:var(--navy);box-shadow:0 0 0 2px var(--navy);}
-  .summary .card.clickable.active .num, .summary .card.clickable.active .lab{color:#fff;}
 
   .progress-wrap{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
   .progress-wrap .top{display:flex;justify-content:space-between;font-size:12px;font-weight:bold;color:var(--navy);margin-bottom:6px;}
@@ -336,6 +332,7 @@
         <select id="shiftInput">
           <option>Shift 1</option>
           <option>Shift 2</option>
+          <option>Shift 3</option>
           <option>Non Shift</option>
         </select>
       </div>
@@ -480,11 +477,6 @@
     </div>
 
     <div class="summary" id="rekapSummaryCards"></div>
-
-    <div id="rekapStatusDetailWrap" style="display:none;margin-bottom:14px;">
-      <div class="section-title" id="rekapStatusDetailTitle"></div>
-      <div id="rekapStatusDetailList"></div>
-    </div>
 
     <div id="rekapDetail"></div>
 
@@ -1775,23 +1767,7 @@ async function renderRekap(){
   await renderFollowList(periodDates);
 }
 
-/* ---- Warna badge per status checklist, dipakai untuk daftar detail interaktif ---- */
-const STATUS_DETAIL_COLOR = {
-  "Checked":     { bg:'var(--green-bg)',  fg:'var(--green)' },
-  "Follow up":   { bg:'var(--yellow-bg)', fg:'#7A6000' },
-  "Continue":    { bg:'var(--blue-bg)',   fg:'var(--blue-fg)' },
-  "Not yet":     { bg:'var(--red-bg)',    fg:'var(--red-fg)' },
-  "Information": { bg:'var(--grey-bg)',   fg:'var(--grey-fg)' },
-  "n/a":         { bg:'var(--grey-bg)',   fg:'var(--grey-fg)' }
-};
-let rekapStatusFilter = null;
-let rekapStatusPeriodDates = [];
-
 function renderAggregateSummary(periodDates){
-  rekapStatusPeriodDates = periodDates;
-  rekapStatusFilter = null; // reset seleksi tiap kali periode (minggu/bulan/tahun/tanggal) berubah
-  document.getElementById('rekapStatusDetailWrap').style.display = 'none';
-
   const counts = {}; STATUS_OPTIONS.forEach(s=>counts[s]=0);
   let sumChecked=0, sumApplicable=0, daysWithData=0;
   periodDates.forEach(d => {
@@ -1808,64 +1784,9 @@ function renderAggregateSummary(periodDates){
   document.getElementById('rekapAvgFill').style.width = avgPct + '%';
   document.getElementById('rekapAvgLabel').textContent = `Rata-rata penyelesaian (${daysWithData} hari terisi)`;
 
-  const cardsHtml = STATUS_OPTIONS.map(s => `<div class="card clickable" data-status="${s}"><div class="num">${counts[s]}</div><div class="lab">${s}</div></div>`).join('')
+  const cardsHtml = STATUS_OPTIONS.map(s => `<div class="card"><div class="num">${counts[s]}</div><div class="lab">${s}</div></div>`).join('')
     + `<div class="card"><div class="num">${daysWithData}</div><div class="lab">Hari Terisi</div></div>`;
-  const cardsEl = document.getElementById('rekapSummaryCards');
-  cardsEl.innerHTML = cardsHtml;
-
-  cardsEl.querySelectorAll('.card.clickable').forEach(card => {
-    card.onclick = () => {
-      const status = card.dataset.status;
-      rekapStatusFilter = (rekapStatusFilter === status) ? null : status;
-      cardsEl.querySelectorAll('.card.clickable').forEach(c => c.classList.toggle('active', c.dataset.status === rekapStatusFilter));
-      renderRekapStatusDetail();
-    };
-  });
-}
-
-function renderRekapStatusDetail(){
-  const wrap = document.getElementById('rekapStatusDetailWrap');
-  if(!rekapStatusFilter){ wrap.style.display = 'none'; return; }
-
-  const status = rekapStatusFilter;
-  const items = [];
-  rekapStatusPeriodDates.forEach(d => {
-    const entry = allEntriesCache[d];
-    if(!entry || !entry.status) return;
-    Object.keys(entry.status).forEach(taskId => {
-      if(entry.status[taskId] === status){
-        items.push({ date: d, taskId, note: (entry.notes && entry.notes[taskId]) || '' });
-      }
-    });
-  });
-  items.sort((a,b) => a.date.localeCompare(b.date));
-
-  document.getElementById('rekapStatusDetailTitle').textContent = `📋 Detail status "${status}" — ${items.length} item pada periode ini`;
-  const listEl = document.getElementById('rekapStatusDetailList');
-  const color = STATUS_DETAIL_COLOR[status] || { bg:'var(--hilite)', fg:'var(--navy)' };
-  if(items.length === 0){
-    listEl.innerHTML = '<div class="empty-note">Tidak ada item dengan status ini pada periode ini.</div>';
-  }else{
-    listEl.innerHTML = items.map(it => `
-      <div class="fu-card" style="border-left-color:${color.fg};cursor:pointer;" data-date="${it.date}">
-        <div class="fu-desc"><span class="fi-date">${it.date}</span>${taskTextMap[it.taskId] || it.taskId}</div>
-        ${it.note ? `<div class="fu-note">${it.note}</div>` : ''}
-      </div>
-    `).join('');
-    // Klik item detail langsung buka laporan harian tanggal tsb (konsisten dgn baris Detail Harian)
-    listEl.querySelectorAll('.fu-card[data-date]').forEach(row => {
-      row.onclick = () => {
-        const d = row.dataset.date;
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelector('.tab[data-view="harian"]').classList.add('active');
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.getElementById('view-harian').classList.add('active');
-        document.getElementById('dateInput').value = d;
-        loadForDate(d);
-      };
-    });
-  }
-  wrap.style.display = 'block';
+  document.getElementById('rekapSummaryCards').innerHTML = cardsHtml;
 }
 
 function dayLabel(dateStr){
