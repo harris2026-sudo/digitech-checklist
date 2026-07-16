@@ -68,6 +68,17 @@
   .summary .card{background:#fff;border-radius:10px;padding:10px 6px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08);}
   .summary .card .num{font-size:20px;font-weight:bold;color:var(--navy);}
   .summary .card .lab{font-size:9.5px;color:#667;margin-top:2px;text-transform:uppercase;letter-spacing:.3px;}
+  .summary .card.clickable{cursor:pointer;transition:transform .12s,box-shadow .12s;border:1.5px solid transparent;}
+  .summary .card.clickable:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(31,56,100,.18);border-color:var(--hilite);}
+  .summary .card.clickable:active{transform:translateY(0);}
+  /* Modal detail status rekap (klik card ringkasan) */
+  .rekap-status-list{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto;}
+  .rekap-status-item{background:#F7F9FC;border-left:4px solid var(--accent);border-radius:8px;padding:8px 10px;cursor:pointer;transition:background .12s;}
+  .rekap-status-item:hover{background:var(--hilite);}
+  .rekap-status-item .rsi-date{font-size:11px;font-weight:bold;color:var(--navy);}
+  .rekap-status-item .rsi-task{font-size:12.5px;color:#333;margin-top:2px;}
+  .rekap-status-item .rsi-note{font-size:11px;color:#667;margin-top:3px;font-style:italic;}
+  .rekap-status-empty{font-size:12.5px;color:#889;text-align:center;padding:20px 0;}
 
   .progress-wrap{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
   .progress-wrap .top{display:flex;justify-content:space-between;font-size:12px;font-weight:bold;color:var(--navy);margin-bottom:6px;}
@@ -458,6 +469,19 @@
       <div class="vendor-item-list" id="picModalList"></div>
       <div style="text-align:right;margin-top:14px;">
         <button type="button" class="btn btn-ghost" id="picModalDoneBtn">Selesai</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: DETAIL STATUS REKAP (klik card ringkasan) ================= -->
+  <div class="modal-overlay" id="rekapStatusModalOverlay">
+    <div class="modal-box" style="max-width:480px;">
+      <button type="button" class="modal-close-x" id="rekapStatusModalCloseBtn" title="Tutup">✕</button>
+      <h3 id="rekapStatusModalTitle">Detail Status</h3>
+      <div id="rekapStatusModalSub" style="font-size:11.5px;color:#667;margin-bottom:10px;"></div>
+      <div class="rekap-status-list" id="rekapStatusModalList"></div>
+      <div style="text-align:right;margin-top:14px;">
+        <button type="button" class="btn btn-ghost" id="rekapStatusModalDoneBtn">Tutup</button>
       </div>
     </div>
   </div>
@@ -1763,9 +1787,12 @@ async function renderRekap(){
     renderYearDetail(monthBuckets, y);
   }
 
+  currentRekapPeriodDates = periodDates;
   renderAggregateSummary(periodDates);
   await renderFollowList(periodDates);
 }
+
+let currentRekapPeriodDates = [];
 
 function renderAggregateSummary(periodDates){
   const counts = {}; STATUS_OPTIONS.forEach(s=>counts[s]=0);
@@ -1784,10 +1811,80 @@ function renderAggregateSummary(periodDates){
   document.getElementById('rekapAvgFill').style.width = avgPct + '%';
   document.getElementById('rekapAvgLabel').textContent = `Rata-rata penyelesaian (${daysWithData} hari terisi)`;
 
-  const cardsHtml = STATUS_OPTIONS.map(s => `<div class="card"><div class="num">${counts[s]}</div><div class="lab">${s}</div></div>`).join('')
-    + `<div class="card"><div class="num">${daysWithData}</div><div class="lab">Hari Terisi</div></div>`;
+  const cardsHtml = STATUS_OPTIONS.map(s => `<div class="card clickable" data-status="${s}" title="Klik untuk lihat detail"><div class="num">${counts[s]}</div><div class="lab">${s}</div></div>`).join('')
+    + `<div class="card clickable" data-status="__hariterisi" title="Klik untuk lihat detail"><div class="num">${daysWithData}</div><div class="lab">Hari Terisi</div></div>`;
   document.getElementById('rekapSummaryCards').innerHTML = cardsHtml;
+
+  document.querySelectorAll('#rekapSummaryCards .card.clickable').forEach(card => {
+    card.onclick = () => openRekapStatusModal(card.dataset.status);
+  });
 }
+
+/* ---- Modal detail: klik card ringkasan (Checked/Follow up/Continue/Not yet/Information/n-a/Hari Terisi) ---- */
+function openRekapStatusModal(status){
+  const titleEl = document.getElementById('rekapStatusModalTitle');
+  const subEl = document.getElementById('rekapStatusModalSub');
+  const listEl = document.getElementById('rekapStatusModalList');
+  const periodDates = currentRekapPeriodDates || [];
+
+  if(status === '__hariterisi'){
+    const daysWithData = periodDates.filter(d => allEntriesCache[d]);
+    titleEl.textContent = '📅 Hari Terisi';
+    subEl.textContent = `${daysWithData.length} hari memiliki data checklist pada periode ini · klik untuk buka laporan harian`;
+    listEl.innerHTML = daysWithData.length === 0
+      ? '<div class="rekap-status-empty">Belum ada hari terisi pada periode ini.</div>'
+      : daysWithData.map(d => {
+          const { pct } = computeDayStats(allEntriesCache[d]);
+          return `<div class="rekap-status-item" data-date="${d}"><div class="rsi-date">${d}</div><div class="rsi-task">Penyelesaian: ${pct}%</div></div>`;
+        }).join('');
+  } else {
+    titleEl.textContent = `📋 Detail Status: ${status}`;
+    const items = [];
+    periodDates.forEach(d => {
+      const entry = allEntriesCache[d];
+      if(!entry || !entry.status) return;
+      taskIds.forEach(id => {
+        if(entry.status[id] === status){
+          items.push({ date: d, task: taskTextMap[id] || id, note: (entry.notes && entry.notes[id]) || '' });
+        }
+      });
+    });
+    subEl.textContent = `${items.length} item dengan status "${status}" pada periode ini · klik untuk buka laporan harian`;
+    listEl.innerHTML = items.length === 0
+      ? '<div class="rekap-status-empty">Tidak ada item dengan status ini pada periode ini.</div>'
+      : items.map(it => `<div class="rekap-status-item" data-date="${it.date}">
+          <div class="rsi-date">${dayLabel(it.date)} · ${it.date}</div>
+          <div class="rsi-task">${it.task}</div>
+          ${it.note ? `<div class="rsi-note">📝 ${it.note}</div>` : ''}
+        </div>`).join('');
+  }
+
+  listEl.querySelectorAll('.rekap-status-item[data-date]').forEach(row => {
+    row.onclick = () => {
+      closeRekapStatusModal();
+      const d = row.dataset.date;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('.tab[data-view="harian"]').classList.add('active');
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-harian').classList.add('active');
+      document.getElementById('dateInput').value = d;
+      loadForDate(d);
+    };
+  });
+
+  document.getElementById('rekapStatusModalOverlay').classList.add('active');
+}
+function closeRekapStatusModal(){
+  document.getElementById('rekapStatusModalOverlay').classList.remove('active');
+}
+document.getElementById('rekapStatusModalCloseBtn').onclick = closeRekapStatusModal;
+document.getElementById('rekapStatusModalDoneBtn').onclick = closeRekapStatusModal;
+document.getElementById('rekapStatusModalOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'rekapStatusModalOverlay') closeRekapStatusModal();
+});
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape' && document.getElementById('rekapStatusModalOverlay').classList.contains('active')) closeRekapStatusModal();
+});
 
 function dayLabel(dateStr){
   const d = new Date(dateStr+'T00:00:00');
