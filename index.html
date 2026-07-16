@@ -144,8 +144,9 @@
   footer{text-align:center;font-size:10.5px;color:var(--accent);font-style:italic;margin-top:16px;}
 
   .history-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
-  .history-chip{background:var(--hilite);color:var(--navy);border-radius:14px;padding:4px 10px;font-size:11px;cursor:pointer;border:1px solid #c3d7ee;}
+  .history-chip{background:var(--hilite);color:var(--navy);border-radius:14px;padding:4px 10px;font-size:11px;cursor:pointer;border:1px solid #c3d7ee;display:inline-flex;align-items:center;gap:5px;}
   .history-chip:hover{background:#c3d7ee;}
+  .history-shift-badge{background:var(--navy);color:#fff;border-radius:8px;padding:1px 6px;font-size:9.5px;font-weight:bold;letter-spacing:.2px;}
 
   /* Rekap view */
   .rekap-modeselect{display:flex;gap:6px;margin-bottom:12px;}
@@ -159,6 +160,15 @@
   .day-row .d-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--navy));border-radius:5px;}
   .day-row .d-pct{width:44px;text-align:right;font-size:12px;font-weight:bold;color:var(--navy);}
   .day-row.empty{opacity:.4;}
+  .day-row .d-shiftbadges{display:flex;gap:4px;flex:0 0 auto;}
+  .day-shift-badge{background:var(--accent);color:#fff;border-radius:8px;padding:2px 6px;font-size:9.5px;font-weight:bold;}
+  .day-shift-badge.legacy{background:#8a94a6;}
+  .day-shift-detail{background:#F7F9FC;border-left:4px solid var(--accent);border-radius:0 0 8px 8px;margin:-6px 0 6px 0;padding:6px 12px 6px 20px;}
+  .day-shift-row{display:flex;justify-content:space-between;align-items:center;padding:6px 4px;font-size:12px;color:var(--navy);cursor:pointer;border-bottom:1px dashed #dde5ee;}
+  .day-shift-row:last-child{border-bottom:none;}
+  .day-shift-row:hover{background:var(--hilite);border-radius:6px;}
+  .day-shift-row .dsr-label{font-weight:bold;}
+  .day-shift-row .dsr-pct{font-weight:bold;color:var(--accent);}
 
   .month-row{display:flex;align-items:center;gap:10px;background:#fff;border-radius:8px;padding:9px 12px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,.06);}
   .month-row .m-name{width:90px;font-size:12px;font-weight:bold;color:var(--navy);}
@@ -379,7 +389,7 @@
 
     <div class="save-bar">
       <span class="save-status" id="saveStatus">Belum disimpan</span>
-      <span style="font-size:10.5px;color:#99a;" id="saveHint">Data tersimpan otomatis per tanggal</span>
+      <span style="font-size:10.5px;color:#99a;" id="saveHint">Data tersimpan otomatis per tanggal + shift (Shift 1/2/3 tidak saling menimpa)</span>
     </div>
   </div>
 
@@ -953,7 +963,20 @@ function todayStr(){
   const tz = d.getTimezoneOffset() * 60000;
   return new Date(d - tz).toISOString().slice(0,10);
 }
-function keyFor(dateStr){ return `checklist:${dateStr}`; }
+/* Skema key checklist harian: checklist:{tanggal}:{shiftSlug} — supaya Shift 1/2/3 tidak saling
+   menimpa data pada tanggal yang sama. Data lama (sebelum pemisahan shift) tersimpan dengan key
+   checklist:{tanggal} TANPA shiftSlug — key lama ini TIDAK diubah/dihapus (tetap terbaca sebagai
+   "Data Lama" di Rekap), sesuai standing rule: dilarang menghilangkan history/data lama. */
+const SHIFT_LABEL_BY_SLUG = { shift1:'Shift 1', shift2:'Shift 2', shift3:'Shift 3', nonshift:'Non Shift', legacy:'Data Lama' };
+function shiftSlug(label){
+  const s = (label||'').toLowerCase();
+  if(s.includes('1')) return 'shift1';
+  if(s.includes('2')) return 'shift2';
+  if(s.includes('3')) return 'shift3';
+  return 'nonshift';
+}
+function shiftLabelFromSlug(slug){ return SHIFT_LABEL_BY_SLUG[slug] || slug; }
+function keyFor(dateStr, shiftLabel){ return `checklist:${dateStr}:${shiftSlug(shiftLabel)}`; }
 
 function computeDayStats(data){
   const counts = {}; STATUS_OPTIONS.forEach(s => counts[s] = 0);
@@ -962,6 +985,27 @@ function computeDayStats(data){
   const applicable = total - counts["Information"] - counts["n/a"];
   const pct = applicable > 0 ? Math.round((counts["Checked"] / applicable) * 100) : 0;
   return { counts, total, applicable, pct };
+}
+
+const SHIFT_SLUG_ORDER = ['shift1','shift2','shift3','nonshift','legacy'];
+/* dateEntries: { shiftSlug: dataChecklist } — satu tanggal bisa berisi beberapa entri shift sekaligus */
+function dayShiftEntries(dateEntries){
+  if(!dateEntries) return [];
+  return SHIFT_SLUG_ORDER.filter(sk => dateEntries[sk]).map(sk => ({
+    shiftKey: sk, label: shiftLabelFromSlug(sk), data: dateEntries[sk]
+  }));
+}
+function computeDayAggregateStats(dateEntries){
+  const counts = {}; STATUS_OPTIONS.forEach(s => counts[s] = 0);
+  let sumChecked = 0, sumApplicable = 0;
+  dayShiftEntries(dateEntries).forEach(({data}) => {
+    const { counts: c, applicable } = computeDayStats(data);
+    STATUS_OPTIONS.forEach(s => counts[s] += c[s]);
+    sumChecked += c["Checked"];
+    sumApplicable += applicable;
+  });
+  const pct = sumApplicable > 0 ? Math.round((sumChecked / sumApplicable) * 100) : 0;
+  return { counts, sumChecked, sumApplicable, pct };
 }
 
 const ROSTER_PHOTO_NFS = 'data:image/jpeg;base64,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';
@@ -1647,7 +1691,7 @@ async function saveCurrent(){
   currentData.pic = document.getElementById('picInput').value;
   const statusEl = document.getElementById('saveStatus');
   try{
-    await store.set(keyFor(dateStr), JSON.stringify(currentData));
+    await store.set(keyFor(dateStr, currentData.shift), JSON.stringify(currentData));
     statusEl.textContent = '✓ Tersimpan · ' + new Date().toLocaleTimeString('id-ID');
     statusEl.classList.remove('error'); statusEl.classList.add('saved');
     loadHistory();
@@ -1657,23 +1701,24 @@ async function saveCurrent(){
     console.error(e);
   }
 }
-async function loadForDate(dateStr){
+async function loadForDate(dateStr, shiftLabel){
+  const shift = shiftLabel || document.getElementById('shiftInput').value || "Shift 1";
   const mySeq = ++loadRequestSeq;
-  // Langsung kosongkan tampilan dulu (jangan biarkan checklist tanggal lama masih terlihat
-  // selagi menunggu fetch tanggal baru selesai) supaya tidak kelihatan seperti "history kebawa".
-  currentData = { status:{}, notes:{}, shift: currentData.shift || "Shift 1", pic: currentData.pic || "Harris" };
+  // Langsung kosongkan tampilan dulu (jangan biarkan checklist tanggal/shift lama masih terlihat
+  // selagi menunggu fetch tanggal+shift baru selesai) supaya tidak kelihatan seperti "history kebawa".
+  currentData = { status:{}, notes:{}, shift: shift, pic: currentData.pic || "Harris" };
   refreshStatusButtons(); refreshNotes(); refreshSummary();
   document.getElementById('saveStatus').textContent = 'Memuat data...';
   document.getElementById('saveStatus').classList.remove('saved','error');
   try{
-    const res = await store.get(keyFor(dateStr));
-    if(mySeq !== loadRequestSeq) return; // ada request tanggal lain yang lebih baru, abaikan hasil ini
-    currentData = (res && res.value) ? JSON.parse(res.value) : { status:{}, notes:{}, shift:"Shift 1", pic:"Harris" };
+    const res = await store.get(keyFor(dateStr, shift));
+    if(mySeq !== loadRequestSeq) return; // ada request tanggal/shift lain yang lebih baru, abaikan hasil ini
+    currentData = (res && res.value) ? JSON.parse(res.value) : { status:{}, notes:{}, shift:shift, pic:"Harris" };
   }catch(e){
     if(mySeq !== loadRequestSeq) return;
-    currentData = { status:{}, notes:{}, shift:"Shift 1", pic:"Harris" };
+    currentData = { status:{}, notes:{}, shift:shift, pic:"Harris" };
   }
-  document.getElementById('shiftInput').value = currentData.shift || "Shift 1";
+  document.getElementById('shiftInput').value = currentData.shift || shift;
   document.getElementById('picInput').value = currentData.pic || "Harris";
   refreshStatusButtons(); refreshNotes(); refreshSummary();
   document.getElementById('saveStatus').textContent = 'Data dimuat';
@@ -1687,10 +1732,28 @@ async function loadHistory(){
       list.innerHTML = '<span style="font-size:11px;color:#999;">Belum ada riwayat tersimpan.</span>';
       return;
     }
-    const dates = res.keys.map(k => k.replace('checklist:','')).sort().reverse().slice(0,30);
-    list.innerHTML = dates.map(d => `<span class="history-chip" data-d="${d}">${d}</span>`).join('');
+    // Kelompokkan key per tanggal (satu tanggal bisa punya beberapa key shift sekaligus).
+    const byDate = {};
+    res.keys.forEach(k => {
+      const rest = k.replace('checklist:','');
+      const parts = rest.split(':');
+      const d = parts[0];
+      const sk = parts[1] || 'legacy';
+      if(!byDate[d]) byDate[d] = new Set();
+      byDate[d].add(sk);
+    });
+    const shortLabel = { shift1:'S1', shift2:'S2', shift3:'S3', nonshift:'NS', legacy:'Lama' };
+    const dates = Object.keys(byDate).sort().reverse().slice(0,30);
+    list.innerHTML = dates.map(d => {
+      const badges = SHIFT_SLUG_ORDER.filter(sk => byDate[d].has(sk))
+        .map(sk => `<span class="history-shift-badge">${shortLabel[sk]}</span>`).join('');
+      return `<span class="history-chip" data-d="${d}">${d}${badges}</span>`;
+    }).join('');
     list.querySelectorAll('.history-chip').forEach(chip => {
-      chip.onclick = () => { document.getElementById('dateInput').value = chip.dataset.d; loadForDate(chip.dataset.d); };
+      chip.onclick = () => {
+        document.getElementById('dateInput').value = chip.dataset.d;
+        loadForDate(chip.dataset.d, document.getElementById('shiftInput').value);
+      };
     });
   }catch(e){
     list.innerHTML = '<span style="font-size:11px;color:#999;">Belum ada riwayat tersimpan.</span>';
@@ -1721,8 +1784,10 @@ document.getElementById('saveBtn').onclick = async () => {
     showToast('✗ Gagal menyimpan checklist', 'error');
   }
 };
-document.getElementById('dateInput').onchange = (e) => loadForDate(e.target.value);
-document.getElementById('shiftInput').onchange = scheduleSave;
+document.getElementById('dateInput').onchange = (e) => loadForDate(e.target.value, document.getElementById('shiftInput').value);
+// PENTING: ganti Shift TIDAK boleh langsung menimpa (scheduleSave) data shift lain di tanggal yang
+// sama. Ganti shift = muat ulang data checklist milik shift tsb (bisa kosong kalau belum pernah diisi).
+document.getElementById('shiftInput').onchange = () => loadForDate(document.getElementById('dateInput').value || todayStr(), document.getElementById('shiftInput').value);
 document.getElementById('picInput').oninput = scheduleSave;
 document.getElementById('picInput').onchange = scheduleSave;
 
@@ -1730,15 +1795,23 @@ document.getElementById('picInput').onchange = scheduleSave;
 let rekapMode = 'week';
 let allEntriesCache = null; // { dateStr: data }
 
+/* allEntriesCache sekarang berbentuk { tanggal: { shiftSlug: dataChecklist, ... } } supaya
+   Shift 1/2/3 (dan Data Lama) pada tanggal yang sama semua ikut terhitung, tidak saling menimpa. */
 async function fetchAllEntries(){
   const res = await store.list('checklist:');
   const map = {};
   if(res && res.keys){
     for(const k of res.keys){
-      const dateStr = k.replace('checklist:','');
+      const rest = k.replace('checklist:','');
+      const parts = rest.split(':');
+      const dateStr = parts[0];
+      const shiftKey = parts[1] || 'legacy';
       try{
         const r = await store.get(k);
-        if(r && r.value) map[dateStr] = JSON.parse(r.value);
+        if(r && r.value){
+          if(!map[dateStr]) map[dateStr] = {};
+          map[dateStr][shiftKey] = JSON.parse(r.value);
+        }
       }catch(e){ /* skip */ }
     }
   }
@@ -1824,13 +1897,13 @@ function renderAggregateSummary(periodDates){
   const counts = {}; STATUS_OPTIONS.forEach(s=>counts[s]=0);
   let sumChecked=0, sumApplicable=0, daysWithData=0;
   periodDates.forEach(d => {
-    const entry = allEntriesCache[d];
-    if(!entry) return;
+    const dateEntries = allEntriesCache[d];
+    if(!dateEntries) return;
     daysWithData++;
-    const { counts: c, applicable } = computeDayStats(entry);
+    const { counts: c, sumChecked: sc, sumApplicable: sa } = computeDayAggregateStats(dateEntries);
     STATUS_OPTIONS.forEach(s => counts[s]+=c[s]);
-    sumChecked += c["Checked"];
-    sumApplicable += applicable;
+    sumChecked += sc;
+    sumApplicable += sa;
   });
   const avgPct = sumApplicable > 0 ? Math.round((sumChecked/sumApplicable)*100) : 0;
   document.getElementById('rekapAvgPct').textContent = avgPct + '%';
@@ -1860,26 +1933,31 @@ function openRekapStatusModal(status){
     listEl.innerHTML = daysWithData.length === 0
       ? '<div class="rekap-status-empty">Belum ada hari terisi pada periode ini.</div>'
       : daysWithData.map(d => {
-          const { pct } = computeDayStats(allEntriesCache[d]);
-          return `<div class="rekap-status-item" data-date="${d}"><div class="rsi-date">${d}</div><div class="rsi-task">Penyelesaian: ${pct}%</div></div>`;
+          const { pct } = computeDayAggregateStats(allEntriesCache[d]);
+          const shiftCount = dayShiftEntries(allEntriesCache[d]).length;
+          const shiftNote = shiftCount > 1 ? ` · ${shiftCount} entri shift` : '';
+          return `<div class="rekap-status-item" data-date="${d}"><div class="rsi-date">${d}</div><div class="rsi-task">Penyelesaian: ${pct}%${shiftNote}</div></div>`;
         }).join('');
   } else {
     titleEl.textContent = `📋 Detail Status: ${status}`;
     const items = [];
     periodDates.forEach(d => {
-      const entry = allEntriesCache[d];
-      if(!entry || !entry.status) return;
-      taskIds.forEach(id => {
-        if(entry.status[id] === status){
-          items.push({ date: d, task: taskTextMap[id] || id, note: (entry.notes && entry.notes[id]) || '' });
-        }
+      const dateEntries = allEntriesCache[d];
+      if(!dateEntries) return;
+      dayShiftEntries(dateEntries).forEach(({shiftKey, label, data}) => {
+        if(!data.status) return;
+        taskIds.forEach(id => {
+          if(data.status[id] === status){
+            items.push({ date: d, shiftKey, shiftLabel: label, task: taskTextMap[id] || id, note: (data.notes && data.notes[id]) || '' });
+          }
+        });
       });
     });
     subEl.textContent = `${items.length} item dengan status "${status}" pada periode ini · klik untuk buka laporan harian`;
     listEl.innerHTML = items.length === 0
       ? '<div class="rekap-status-empty">Tidak ada item dengan status ini pada periode ini.</div>'
-      : items.map(it => `<div class="rekap-status-item" data-date="${it.date}">
-          <div class="rsi-date">${dayLabel(it.date)} · ${it.date}</div>
+      : items.map(it => `<div class="rekap-status-item" data-date="${it.date}" data-shift="${it.shiftKey}">
+          <div class="rsi-date">${dayLabel(it.date)} · ${it.date} · ${it.shiftLabel}</div>
           <div class="rsi-task">${it.task}</div>
           ${it.note ? `<div class="rsi-note">📝 ${it.note}</div>` : ''}
         </div>`).join('');
@@ -1889,12 +1967,14 @@ function openRekapStatusModal(status){
     row.onclick = () => {
       closeRekapStatusModal();
       const d = row.dataset.date;
+      const sk = row.dataset.shift;
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelector('.tab[data-view="harian"]').classList.add('active');
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.getElementById('view-harian').classList.add('active');
       document.getElementById('dateInput').value = d;
-      loadForDate(d);
+      if(sk && sk !== 'legacy') document.getElementById('shiftInput').value = shiftLabelFromSlug(sk);
+      loadForDate(d, document.getElementById('shiftInput').value);
     };
   });
 
@@ -1918,28 +1998,77 @@ function dayLabel(dateStr){
   return `${days[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}`;
 }
 
+/* Kartu badge S1/S2/S3/NS/Lama di sisi kanan tiap baris hari, menandakan shift mana saja yang
+   sudah terisi pada tanggal tsb. */
+function shiftBadgesHtml(dateEntries){
+  if(!dateEntries) return '';
+  const shortLabel = { shift1:'S1', shift2:'S2', shift3:'S3', nonshift:'NS', legacy:'Lama' };
+  return dayShiftEntries(dateEntries).map(({shiftKey, label}) => {
+    const cls = shiftKey === 'legacy' ? 'day-shift-badge legacy' : 'day-shift-badge';
+    return `<span class="${cls}" title="${label}">${shortLabel[shiftKey] || shiftKey}</span>`;
+  }).join('');
+}
+
+/* Satu baris ringkasan harian (gabungan semua shift) + panel detail per-shift yang bisa
+   di-expand dengan klik baris tsb. dateLabel = label tampil (mis. "Sen 14/7" atau tanggal ISO). */
+function renderDayRow(d, dateLabel){
+  const dateEntries = allEntriesCache[d];
+  if(!dateEntries){
+    return `<div class="day-row empty"><div class="d-date">${dateLabel}</div><div class="d-bar"></div><div class="d-pct">-</div></div>`;
+  }
+  const { pct } = computeDayAggregateStats(dateEntries);
+  const shifts = dayShiftEntries(dateEntries);
+  const rowHtml = `<div class="day-row" data-date="${d}" style="cursor:pointer;">
+      <div class="d-date">${dateLabel}</div>
+      <div class="d-bar"><div class="d-fill" style="width:${pct}%"></div></div>
+      <div class="d-pct">${pct}%</div>
+      <div class="d-shiftbadges">${shiftBadgesHtml(dateEntries)}</div>
+    </div>`;
+  const detailHtml = `<div class="day-shift-detail" id="shiftdetail-${d}" style="display:none;">
+      ${shifts.map(({shiftKey, label, data}) => {
+        const { pct: spct } = computeDayStats(data);
+        return `<div class="day-shift-row" data-date="${d}" data-shift="${shiftKey}">
+          <span class="dsr-label">${label}${data.pic ? ' · ' + data.pic : ''}</span>
+          <span class="dsr-pct">${spct}%</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  return rowHtml + detailHtml;
+}
+
+/* Klik baris hari -> buka/tutup panel detail per shift. Klik salah satu baris shift di dalam
+   panel -> baru pindah ke tab Checklist Harian dengan tanggal+shift yang sesuai. */
 function attachDayRowClicks(container){
   container.querySelectorAll('.day-row[data-date]').forEach(row => {
     row.onclick = () => {
       const d = row.dataset.date;
+      const detail = document.getElementById('shiftdetail-' + d);
+      if(!detail) return;
+      const isOpen = detail.style.display !== 'none';
+      container.querySelectorAll('.day-shift-detail').forEach(el => el.style.display = 'none');
+      detail.style.display = isOpen ? 'none' : 'block';
+    };
+  });
+  container.querySelectorAll('.day-shift-row[data-date]').forEach(row => {
+    row.onclick = (e) => {
+      e.stopPropagation();
+      const d = row.dataset.date;
+      const sk = row.dataset.shift;
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelector('.tab[data-view="harian"]').classList.add('active');
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.getElementById('view-harian').classList.add('active');
       document.getElementById('dateInput').value = d;
-      loadForDate(d);
+      if(sk && sk !== 'legacy') document.getElementById('shiftInput').value = shiftLabelFromSlug(sk);
+      loadForDate(d, document.getElementById('shiftInput').value);
     };
   });
 }
 
 function renderWeekDetail(periodDates){
   const el = document.getElementById('rekapDetail');
-  el.innerHTML = '<div class="section-title">Detail Harian (Senin–Minggu) · klik untuk lihat laporan lengkap</div>' + periodDates.map(d => {
-    const entry = allEntriesCache[d];
-    if(!entry) return `<div class="day-row empty"><div class="d-date">${dayLabel(d)}</div><div class="d-bar"></div><div class="d-pct">-</div></div>`;
-    const { pct } = computeDayStats(entry);
-    return `<div class="day-row" data-date="${d}" style="cursor:pointer;"><div class="d-date">${dayLabel(d)}</div><div class="d-bar"><div class="d-fill" style="width:${pct}%"></div></div><div class="d-pct">${pct}%</div></div>`;
-  }).join('');
+  el.innerHTML = '<div class="section-title">Detail Harian (Senin–Minggu) · klik hari untuk lihat breakdown per shift</div>'
+    + periodDates.map(d => renderDayRow(d, dayLabel(d))).join('');
   attachDayRowClicks(el);
 }
 
@@ -1950,11 +2079,8 @@ function renderMonthDetail(periodDates, ym){
     el.innerHTML = `<div class="section-title">Detail Harian — ${ym}</div><div class="empty-note">Belum ada data tersimpan di bulan ini.</div>`;
     return;
   }
-  el.innerHTML = `<div class="section-title">Detail Harian — ${ym} · klik untuk lihat laporan lengkap</div>` + withData.map(d => {
-    const entry = allEntriesCache[d];
-    const { pct } = computeDayStats(entry);
-    return `<div class="day-row" data-date="${d}" style="cursor:pointer;"><div class="d-date">${d}</div><div class="d-bar"><div class="d-fill" style="width:${pct}%"></div></div><div class="d-pct">${pct}%</div></div>`;
-  }).join('');
+  el.innerHTML = `<div class="section-title">Detail Harian — ${ym} · klik hari untuk lihat breakdown per shift</div>`
+    + withData.map(d => renderDayRow(d, d)).join('');
   attachDayRowClicks(el);
 }
 
@@ -1964,11 +2090,11 @@ function renderYearDetail(monthBuckets, year){
   el.innerHTML = `<div class="section-title">Breakdown per Bulan — ${year}</div>` + monthBuckets.map(({m, dates}) => {
     let sumChecked=0, sumApplicable=0, daysWithData=0;
     dates.forEach(d => {
-      const entry = allEntriesCache[d];
-      if(!entry) return;
+      const dateEntries = allEntriesCache[d];
+      if(!dateEntries) return;
       daysWithData++;
-      const { counts, applicable } = computeDayStats(entry);
-      sumChecked += counts["Checked"]; sumApplicable += applicable;
+      const { sumChecked: sc, sumApplicable: sa } = computeDayAggregateStats(dateEntries);
+      sumChecked += sc; sumApplicable += sa;
     });
     const pct = sumApplicable>0 ? Math.round((sumChecked/sumApplicable)*100) : 0;
     const rowClass = daysWithData===0 ? 'month-row empty-note-row' : 'month-row';
@@ -1984,7 +2110,13 @@ let rekapFuDismissed = {};
 let rekapFuFilter = 'Semua';
 let rekapFuItemsCache = [];
 
-function rekapFuKey(date, taskId){ return date + '__' + taskId; }
+/* Key tracking status Follow up di Rekap. Untuk entri "Data Lama" (legacy, sebelum pemisahan
+   shift) key TIDAK berubah (date__taskId) supaya status Open/Onprogress/Hold/Close yang sudah
+   pernah diatur Harris sebelumnya tetap terbaca. Entri per-shift yang baru diberi suffix shift
+   supaya item yang sama di shift berbeda pada tanggal yang sama tidak saling tabrakan. */
+function rekapFuKey(date, taskId, shiftKey){
+  return (shiftKey && shiftKey !== 'legacy') ? `${date}__${taskId}__${shiftKey}` : `${date}__${taskId}`;
+}
 
 async function loadRekapFuStatus(){
   try{
@@ -2041,7 +2173,7 @@ function renderFollowListBody(){
       : `<span class="fi-date">${it.date}</span>${taskTextMap[it.taskId] || it.taskId}`;
     const metaHtml = isManual
       ? `<span class="fi-status fu">Follow Up (manual)</span>${it.vendor ? ' · ' + it.vendor : ''}${it.pic ? ' · PIC: ' + it.pic : ''}${it.due ? ' · Due: ' + it.due : ''}`
-      : `<span class="fi-status ${it.status==='Not yet'?'ny':'fu'}">${it.status}</span>`;
+      : `<span class="fi-status ${it.status==='Not yet'?'ny':'fu'}">${it.status}</span>${it.shiftLabel ? ' · ' + it.shiftLabel : ''}`;
     return `
     <div class="fu-card status-${it.trackStatus}" data-key="${it.key}">
       <div class="fu-top">
@@ -2102,14 +2234,17 @@ function renderFollowListBody(){
 async function renderFollowList(periodDates){
   const items = [];
   periodDates.forEach(d => {
-    const entry = allEntriesCache[d];
-    if(!entry || !entry.status) return;
-    Object.keys(entry.status).forEach(taskId => {
-      const s = entry.status[taskId];
-      if(s === 'Follow up' || s === 'Not yet'){
-        const key = rekapFuKey(d, taskId);
-        items.push({ key, source:'checklist', date:d, taskId, status:s, note: (entry.notes && entry.notes[taskId]) || '', trackStatus: rekapFuStatusMap[key] || 'Open' });
-      }
+    const dateEntries = allEntriesCache[d];
+    if(!dateEntries) return;
+    dayShiftEntries(dateEntries).forEach(({shiftKey, label, data}) => {
+      if(!data.status) return;
+      Object.keys(data.status).forEach(taskId => {
+        const s = data.status[taskId];
+        if(s === 'Follow up' || s === 'Not yet'){
+          const key = rekapFuKey(d, taskId, shiftKey);
+          items.push({ key, source:'checklist', date:d, shiftKey, shiftLabel: label, taskId, status:s, note: (data.notes && data.notes[taskId]) || '', trackStatus: rekapFuStatusMap[key] || 'Open' });
+        }
+      });
     });
   });
 
