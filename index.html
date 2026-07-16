@@ -946,6 +946,7 @@ rebuildTaskIndex();
 
 let currentData = { status: {}, notes: {}, shift: "Shift 1", pic: "Harris" };
 let saveTimer = null;
+let loadRequestSeq = 0; // guard: cegah response fetch tanggal lama menimpa tampilan tanggal baru
 
 function todayStr(){
   const d = new Date();
@@ -1657,10 +1658,19 @@ async function saveCurrent(){
   }
 }
 async function loadForDate(dateStr){
+  const mySeq = ++loadRequestSeq;
+  // Langsung kosongkan tampilan dulu (jangan biarkan checklist tanggal lama masih terlihat
+  // selagi menunggu fetch tanggal baru selesai) supaya tidak kelihatan seperti "history kebawa".
+  currentData = { status:{}, notes:{}, shift: currentData.shift || "Shift 1", pic: currentData.pic || "Harris" };
+  refreshStatusButtons(); refreshNotes(); refreshSummary();
+  document.getElementById('saveStatus').textContent = 'Memuat data...';
+  document.getElementById('saveStatus').classList.remove('saved','error');
   try{
     const res = await store.get(keyFor(dateStr));
+    if(mySeq !== loadRequestSeq) return; // ada request tanggal lain yang lebih baru, abaikan hasil ini
     currentData = (res && res.value) ? JSON.parse(res.value) : { status:{}, notes:{}, shift:"Shift 1", pic:"Harris" };
   }catch(e){
+    if(mySeq !== loadRequestSeq) return;
     currentData = { status:{}, notes:{}, shift:"Shift 1", pic:"Harris" };
   }
   document.getElementById('shiftInput').value = currentData.shift || "Shift 1";
