@@ -323,10 +323,38 @@
   .toast.show{opacity:1;transform:translateX(0);}
   .toast.toast-success{background:#1f7a3f;}
   .toast.toast-error{background:#b3261e;}
+
+  /* Notifikasi interaktif: pengajuan baru dari Order Form */
+  .orderform-alert{
+    position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-16px);
+    z-index:10000;background:#fff;border-left:6px solid var(--gold-bg);
+    border-radius:10px;box-shadow:0 8px 26px rgba(0,0,0,.28);
+    padding:14px 16px;max-width:400px;width:92%;opacity:0;
+    transition:opacity .25s ease,transform .25s ease;pointer-events:none;
+  }
+  .orderform-alert.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
+  .orderform-alert .oa-head{display:flex;justify-content:space-between;align-items:center;font-weight:bold;color:var(--navy);font-size:13.5px;margin-bottom:8px;}
+  .orderform-alert .oa-close{background:none;border:none;font-size:16px;cursor:pointer;color:#999;line-height:1;padding:0 2px;}
+  .orderform-alert .oa-close:hover{color:#333;}
+  .orderform-alert .oa-body{font-size:12px;color:#444;max-height:130px;overflow-y:auto;margin-bottom:10px;}
+  .orderform-alert .oa-item{padding:5px 0;border-bottom:1px dashed #eee;}
+  .orderform-alert .oa-item:last-child{border-bottom:none;}
+  .orderform-alert .oa-actions{display:flex;gap:8px;}
+  .orderform-alert .oa-btn{flex:1;border:none;border-radius:6px;padding:9px;font-size:12px;font-weight:bold;cursor:pointer;font-family:Arial;}
+  .orderform-alert .oa-btn-primary{background:var(--accent);color:#fff;}
+  .orderform-alert .oa-btn-primary:hover{background:var(--navy);}
+
+  .tab{position:relative;}
+  .tab-badge{
+    display:inline-block;background:#e0393e;color:#fff;border-radius:10px;
+    font-size:10px;font-weight:bold;padding:1px 6px;margin-left:5px;vertical-align:middle;
+  }
+  .fu-src-tag{display:inline-block;font-size:9.5px;font-weight:bold;background:var(--hilite);color:var(--navy);border-radius:8px;padding:1px 7px;margin-left:6px;vertical-align:middle;}
 </style>
 </head>
 <body>
 <div id="toastWrap"></div>
+<div id="orderformAlertWrap"></div>
 <div class="app">
   <header>
     <h1 contenteditable="true" id="headerTitle">📋 Digitech Daily Checklist</h1>
@@ -336,7 +364,7 @@
 
   <div class="tabs">
     <div class="tab active" data-view="harian">✅ Checklist Harian</div>
-    <div class="tab" data-view="followup">🔄 Follow Up</div>
+    <div class="tab" data-view="followup">🔄 Follow Up<span class="tab-badge" id="fuTabBadge" style="display:none;"></span></div>
     <div class="tab" data-view="rekap">📊 Rekap</div>
     <div class="tab" data-view="roster">🗓️ Roster</div>
   </div>
@@ -444,6 +472,10 @@
       <div class="summary" id="fuSummaryCards"></div>
 
       <div class="fu-toolbar" id="fuFilterBar"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin:-4px 0 10px;">
+        <span style="font-size:10.5px;color:#889;" id="orderformSyncInfo">Belum pernah cek Order Form.</span>
+        <button type="button" class="btn btn-ghost" id="orderformSyncBtn" style="font-size:11.5px;padding:6px 12px;">🔄 Cek Pengajuan Baru (Order Form)</button>
+      </div>
       <div id="fuList"></div>
     </div>
 
@@ -542,6 +574,7 @@
   <footer>Maintain. Monitor. Improve. — Digitech Monitoring Team</footer>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
 /* ============================================================
    KONFIGURASI BACKEND STORAGE
@@ -557,6 +590,32 @@
    3. Paste ke APPS_SCRIPT_URL di bawah ini, ganti nilai kosong "".
    ============================================================ */
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0EpZSa7vIfM4Cer00gK04wR0bdStSN6lCMk_6rFENdWt3jEWyErCm2r1RtegruGmQ/exec"; // <-- WAJIB DIISI setelah deploy Apps Script
+
+/* ============================================================
+   KONFIGURASI SINKRON ORDER FORM (pengajuan mitra -> Follow Up)
+   Dashboard ini akan mengecek secara berkala apakah ada baris BARU
+   di Google Sheet "Order Form (Responses)" (hasil Google Form),
+   lalu otomatis memasukkannya ke menu Follow Up + notifikasi.
+
+   Pakai endpoint publik Google Sheets (gviz -> CSV) yang 100% GRATIS,
+   TIDAK perlu Google Cloud Console / API key / billing sama sekali.
+
+   CARA ISI (sekali saja):
+   1. Buka Google Sheet Order Form Responses-nya, cek nama TAB di
+      bagian bawah sheet (defaultnya biasanya "Form Responses 1").
+      Sesuaikan ORDERFORM_SHEET_NAME kalau beda.
+   2. Set sharing sheet tsb (tombol "Share" di kanan atas Sheet) ke
+      "Anyone with the link" - Viewer. Ini juga gratis, cuma pengaturan
+      biasa di Google Sheets, BUKAN Google Cloud/API key.
+   ============================================================ */
+const ORDERFORM_SHEET_ID = "1kP86KEjRVE1caOJAVHzvq_Pql402H_ersXWTIwYKtuw";
+const ORDERFORM_SHEET_NAME = "Form Responses 1"; // <-- sesuaikan jika nama tab berbeda
+const ORDERFORM_LASTROW_KEY = "orderform:lastrow";
+const ORDERFORM_POLL_MS = 90000; // interval cek otomatis: 90 detik
+function orderformCsvUrl(){
+  return `https://docs.google.com/spreadsheets/d/${ORDERFORM_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(ORDERFORM_SHEET_NAME)}&_t=${Date.now()}`;
+}
+
 
 /* ---------------- STORAGE LAYER (backend Google Sheets via Apps Script) ---------------- */
 function requireStorageConfig(){
@@ -1428,7 +1487,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + tab.dataset.view).classList.add('active');
     if(tab.dataset.view === 'rekap') renderRekap();
-    if(tab.dataset.view === 'followup') renderFollowUp();
+    if(tab.dataset.view === 'followup'){ renderFollowUp().then(clearOrderFormUnread); }
     if(tab.dataset.view === 'roster') loadRoster();
   };
 });
@@ -2510,7 +2569,7 @@ function renderFuList(){
     <div class="fu-card status-${it.status}" data-id="${it.id}">
       <div class="fu-top">
         <div>
-          <div class="fu-desc">${it.desc}</div>
+          <div class="fu-desc">${it.desc}${it.source === 'orderform' ? '<span class="fu-src-tag">📥 Order Form</span>' : ''}</div>
           <div class="fu-meta">${it.date}${it.vendor ? ' · ' + it.vendor : ''}${it.pic ? ' · PIC: ' + it.pic : ''}${it.due ? ' · Due: ' + it.due : ''}</div>
         </div>
         <span class="fu-badge ${it.status}">${it.status}</span>
@@ -2546,7 +2605,183 @@ async function renderFollowUp(){
   renderFuSummary();
   renderFuFilterBar();
   renderFuList();
+  updateFollowUpBadge();
 }
+
+/* ---------------- SINKRON ORDER FORM -> FOLLOW UP ---------------- */
+/* Membaca baris baru dari Google Sheet "Order Form (Responses)" lewat endpoint
+   publik gviz (CSV) — GRATIS, tanpa API key/billing. Syaratnya cuma sheet-nya
+   di-share "Anyone with the link - Viewer". Tiap baris baru diubah jadi item
+   Follow Up otomatis + notifikasi interaktif. Posisi baris terakhir yang sudah
+   diproses disimpan di backend (key ORDERFORM_LASTROW_KEY) supaya tidak
+   dobel-proses dan tetap sinkron antar device/anggota tim. */
+
+async function fetchOrderFormRows(){
+  const res = await fetch(orderformCsvUrl(), { cache: 'no-store' });
+  if(!res.ok){
+    throw new Error('HTTP ' + res.status + ' — pastikan sharing sheet sudah "Anyone with the link - Viewer" dan nama tab (ORDERFORM_SHEET_NAME) sudah benar.');
+  }
+  const csvText = await res.text();
+  if(!csvText || !csvText.trim()) return [];
+  const parsed = Papa.parse(csvText.trim(), { skipEmptyLines: false });
+  const allRows = parsed.data || [];
+  return allRows.slice(1); // baris 0 = header, dibuang
+}
+
+function mapOrderFormStatus(s){
+  s = (s || '').toString().trim().toLowerCase();
+  if(s === 'onprogress') return 'Onprogress';
+  if(s === 'hold') return 'Hold';
+  if(s === 'done' || s === 'cancelled') return 'Close';
+  return 'Open';
+}
+
+// Kolom Order Form: 0 Timestamp, 1 Requester Name, 2 Mitra Hauling, 3 Permintaan Tag,
+// 4 Jumlah RFID, 5 No Lambung Lama, 6 No Lambung Baru, 7 Keterangan, 8 Catatan,
+// 9 Posisi Pemasangan RFID Tag, 10 Status Pemberian
+function orderRowToFollowUp(row, rowNum){
+  const timestamp = row[0], requester = row[1], mitra = row[2], permintaan = row[3],
+        jumlah = row[4], lamaLambung = row[5], baruLambung = row[6],
+        keterangan = row[7], catatan = row[8], posisi = row[9], statusPemberian = row[10];
+
+  let dateVal = todayStr();
+  if(timestamp){
+    const d = new Date(timestamp);
+    if(!isNaN(d)) dateVal = new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  }
+
+  const desc = `Pengajuan RFID Tag${permintaan ? ' – ' + permintaan : ''}${mitra ? ' (' + mitra + ')' : ''}${keterangan ? ': ' + keterangan : ''}`;
+
+  const noteBits = [];
+  if(jumlah) noteBits.push('Jumlah RFID: ' + jumlah);
+  if(lamaLambung) noteBits.push('No Lambung Lama: ' + lamaLambung);
+  if(baruLambung) noteBits.push('No Lambung Baru: ' + baruLambung);
+  if(posisi) noteBits.push('Posisi Pasang: ' + posisi);
+  if(catatan) noteBits.push('Catatan: ' + catatan);
+
+  return {
+    id: 'ordform_row' + rowNum,
+    date: dateVal,
+    desc,
+    vendor: mitra || '',
+    pic: requester || '',
+    due: '',
+    status: mapOrderFormStatus(statusPemberian),
+    note: noteBits.join(' · '),
+    source: 'orderform',
+    unread: true
+  };
+}
+
+function setOrderformSyncInfo(text){
+  const el = document.getElementById('orderformSyncInfo');
+  if(el) el.textContent = text;
+}
+
+async function syncOrderForm(opts){
+  opts = opts || {};
+  const btn = document.getElementById('orderformSyncBtn');
+  if(btn && !opts.silent){ btn.disabled = true; btn.textContent = '🔄 Mengecek...'; }
+  try{
+    let lastRow = 1; // baris 1 = header, data dimulai baris 2
+    try{
+      const r = await store.get(ORDERFORM_LASTROW_KEY);
+      if(r && r.value) lastRow = parseInt(r.value, 10) || 1;
+    }catch(e){ /* belum pernah sync sebelumnya, mulai dari awal */ }
+
+    const rows = await fetchOrderFormRows();
+    const newItems = [];
+    rows.forEach((row, idx) => {
+      const rowNum = idx + 2; // range dimulai dari A2
+      const hasData = row && row.some(c => c !== undefined && c !== '');
+      if(rowNum > lastRow && hasData){
+        newItems.push(orderRowToFollowUp(row, rowNum));
+      }
+    });
+
+    if(newItems.length > 0){
+      await loadFollowUp();
+      const existingIds = new Set(followUpItems.map(i => i.id));
+      const trulyNew = newItems.filter(i => !existingIds.has(i.id));
+      if(trulyNew.length > 0){
+        followUpItems = [...trulyNew.slice().reverse(), ...followUpItems];
+        await saveFollowUp();
+        if(document.getElementById('view-followup').classList.contains('active')) renderFollowUp();
+        else updateFollowUpBadge();
+        showOrderFormAlert(trulyNew);
+      }
+    }
+
+    const newLastRow = 1 + rows.length;
+    if(newLastRow > lastRow){ await store.set(ORDERFORM_LASTROW_KEY, String(newLastRow)); }
+
+    const now = new Date();
+    setOrderformSyncInfo('Terakhir cek: ' + now.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) + (newItems.length > 0 ? ` · ${newItems.length} baru ditemukan` : ' · tidak ada pengajuan baru'));
+  }catch(e){
+    console.error('Gagal sync Order Form', e);
+    setOrderformSyncInfo('✗ Gagal cek Order Form: ' + e.message);
+    if(!opts.silent) showToast('✗ Gagal cek Order Form: ' + e.message, 'error');
+  }finally{
+    if(btn && !opts.silent){ btn.disabled = false; btn.textContent = '🔄 Cek Pengajuan Baru (Order Form)'; }
+  }
+}
+
+function playNotifSound(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.45);
+  }catch(e){ /* browser memblokir autoplay audio, abaikan */ }
+}
+
+function showOrderFormAlert(items){
+  const wrap = document.getElementById('orderformAlertWrap');
+  wrap.innerHTML = '';
+  const el = document.createElement('div');
+  el.className = 'orderform-alert';
+  const listHtml = items.slice(0, 5).map(it => `<div class="oa-item">📥 ${it.desc}${it.vendor ? ' · ' + it.vendor : ''}</div>`).join('')
+    + (items.length > 5 ? `<div class="oa-item">+${items.length - 5} pengajuan lainnya…</div>` : '');
+  el.innerHTML = `
+    <div class="oa-head"><span>🔔 ${items.length} Pengajuan Baru Masuk</span><button class="oa-close" id="oaCloseBtn">✕</button></div>
+    <div class="oa-body">${listHtml}</div>
+    <div class="oa-actions"><button class="oa-btn oa-btn-primary" id="oaViewBtn">Lihat di Follow Up</button></div>`;
+  wrap.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  playNotifSound();
+
+  const dismiss = () => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); };
+  document.getElementById('oaCloseBtn').onclick = dismiss;
+  document.getElementById('oaViewBtn').onclick = () => {
+    dismiss();
+    document.querySelector('.tab[data-view="followup"]').click();
+  };
+  setTimeout(() => { if(el.parentNode) dismiss(); }, 15000);
+}
+
+function countUnreadOrderForm(){
+  return followUpItems.filter(i => i.source === 'orderform' && i.unread).length;
+}
+function updateFollowUpBadge(){
+  const badge = document.getElementById('fuTabBadge');
+  if(!badge) return;
+  const n = countUnreadOrderForm();
+  if(n > 0){ badge.textContent = n; badge.style.display = 'inline-block'; }
+  else { badge.style.display = 'none'; }
+}
+async function clearOrderFormUnread(){
+  let changed = false;
+  followUpItems.forEach(i => { if(i.source === 'orderform' && i.unread){ i.unread = false; changed = true; } });
+  if(changed) await saveFollowUp();
+  updateFollowUpBadge();
+}
+
+const orderformSyncBtnEl = document.getElementById('orderformSyncBtn');
+if(orderformSyncBtnEl) orderformSyncBtnEl.onclick = () => syncOrderForm({ silent: false });
 
 /* ---------------- INIT ---------------- */
 const rekapFuDebugToggleBtn = document.getElementById('rekapFuDebugToggle');
@@ -2573,6 +2808,9 @@ document.getElementById('dateInput').value = todayStr();
   loadForDate(todayStr());
   loadHistory();
   buildRekapControls();
+  updateFollowUpBadge();
+  syncOrderForm({ silent: true });
+  setInterval(() => syncOrderForm({ silent: true }), ORDERFORM_POLL_MS);
 })();
 </script>
 </body>
