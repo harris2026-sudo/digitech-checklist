@@ -2641,8 +2641,7 @@ function mapOrderFormStatus(s){
 // 9 Posisi Pemasangan RFID Tag, 10 Status Pemberian
 function orderRowToFollowUp(row, rowNum){
   const timestamp = row[0], requester = row[1], mitra = row[2], permintaan = row[3],
-        jumlah = row[4], lamaLambung = row[5], baruLambung = row[6],
-        keterangan = row[7], catatan = row[8], posisi = row[9], statusPemberian = row[10];
+        jumlah = row[4], statusPemberian = row[10];
 
   let dateVal = todayStr();
   if(timestamp){
@@ -2650,24 +2649,19 @@ function orderRowToFollowUp(row, rowNum){
     if(!isNaN(d)) dateVal = new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
   }
 
-  const desc = `Pengajuan RFID Tag${permintaan ? ' – ' + permintaan : ''}${mitra ? ' (' + mitra + ')' : ''}${keterangan ? ': ' + keterangan : ''}`;
-
-  const noteBits = [];
-  if(jumlah) noteBits.push('Jumlah RFID: ' + jumlah);
-  if(lamaLambung) noteBits.push('No Lambung Lama: ' + lamaLambung);
-  if(baruLambung) noteBits.push('No Lambung Baru: ' + baruLambung);
-  if(posisi) noteBits.push('Posisi Pasang: ' + posisi);
-  if(catatan) noteBits.push('Catatan: ' + catatan);
+  // Sesuai permintaan: tampilan Follow Up dari Order Form cukup 4 data ini saja
+  // (Nama Requestor, Nama Mitra, Permintaan Tag, Jumlah RFID).
+  const desc = `Permintaan Tag: ${permintaan || '-'}`;
 
   return {
     id: 'ordform_row' + rowNum,
     date: dateVal,
     desc,
-    vendor: mitra || '',
-    pic: requester || '',
+    vendor: mitra || '-',
+    pic: requester || '-',
     due: '',
     status: mapOrderFormStatus(statusPemberian),
-    note: noteBits.join(' · '),
+    note: `Jumlah RFID: ${jumlah || '-'}`,
     source: 'orderform',
     unread: true
   };
@@ -2744,7 +2738,7 @@ function showOrderFormAlert(items){
   wrap.innerHTML = '';
   const el = document.createElement('div');
   el.className = 'orderform-alert';
-  const listHtml = items.slice(0, 5).map(it => `<div class="oa-item">📥 ${it.desc}${it.vendor ? ' · ' + it.vendor : ''}</div>`).join('')
+  const listHtml = items.slice(0, 5).map(it => `<div class="oa-item">📥 ${it.pic} · Mitra: ${it.vendor} · ${it.desc} · ${it.note}</div>`).join('')
     + (items.length > 5 ? `<div class="oa-item">+${items.length - 5} pengajuan lainnya…</div>` : '');
   el.innerHTML = `
     <div class="oa-head"><span>🔔 ${items.length} Pengajuan Baru Masuk</span><button class="oa-close" id="oaCloseBtn">✕</button></div>
