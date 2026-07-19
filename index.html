@@ -1203,9 +1203,9 @@ let rosterLoaded = false;
 const ROSTER_HELPER_SHEET_ID = '1EPmkh20M7ptGBnlWIM73GxkgAtvumhNL';
 const ROSTER_HELPER_GID = '2120640525';
 const ROSTER_HELPER_PERSONNEL = [
-  { code:'Ferdy', shortCode:'FJS', name:'Ferdy Julian Siregar',      color:'#B45309', photo: ROSTER_HELPER_PHOTO_FJS, role:'Helper Digitech' },
-  { code:'Wahyu', shortCode:'WH',  name:'Wahyu',                     color:'#0F766E', photo: ROSTER_HELPER_PHOTO_WH,  role:'Helper Digitech' },
-  { code:'Alam',  shortCode:'MRA', name:'Muhammad Rizki Alamsyah',   color:'#6D28D9', photo: ROSTER_HELPER_PHOTO_MRA, role:'Helper Digitech' }
+  { code:'Ferdy', shortCode:'FJS', name:'Ferdy Julian Siregar',      color:'#B45309', photo: ROSTER_HELPER_PHOTO_FJS, role:'Monitoring Field Support' },
+  { code:'Wahyu', shortCode:'WH',  name:'Wahyu',                     color:'#0F766E', photo: ROSTER_HELPER_PHOTO_WH,  role:'Monitoring Field Support' },
+  { code:'Alam',  shortCode:'MRA', name:'Muhammad Rizki Alamsyah',   color:'#6D28D9', photo: ROSTER_HELPER_PHOTO_MRA, role:'Monitoring Field Support' }
 ];
 const ROSTER_HELPER_SHIFT_DEFS = [
   { key:'shift1', label:'Shift 1', start:'06:00', end:'18:00' },
@@ -1763,7 +1763,7 @@ function renderHelperCard(today, now){
         <div class="roster-shiftnow-person">
           ${rosterHelperAvatarHTML(code, isLive ? 56 : 44)}
           <div>
-            <div class="roster-shiftnow-name">${hasPerson ? rosterHelperPersonName(code) : '–'}</div>
+            <div class="roster-shiftnow-name${hasPerson ? ' roster-name-tip' : ''}"${hasPerson ? ` data-role="${rosterHelperPersonRole(code)}"` : ''}>${hasPerson ? rosterHelperPersonName(code) : '–'}</div>
             <div class="roster-shiftnow-code">${hasPerson ? rosterHelperShortCode(code) : 'Belum ada data'}</div>
           </div>
         </div>
@@ -1774,8 +1774,8 @@ function renderHelperCard(today, now){
   const cutiNames = (helperRec && helperRec.cuti && helperRec.cuti !== '-') ? [helperRec.cuti] : [];
   const overshiftName = (helperRec && helperRec.overshift && helperRec.overshift !== '-') ? helperRec.overshift : null;
   const infoRows = [
-    ...cutiNames.map(name => `<div class="roster-shift-row muted">${rosterHelperAvatarHTML(name, 32)}<span class="roster-shift-label roster-editable-label" contenteditable="true" data-rkey="label_helperCuti" style="flex:0 0 90px;background:#F5A623;color:#5C3D00;border-radius:6px;padding:2px 6px;text-align:center;">${rosterLabelText('label_helperCuti','Day-Off')}</span><span class="roster-shift-name">${rosterHelperPersonName(name)}</span></div>`),
-    ...(overshiftName ? [`<div class="roster-shift-row muted">${rosterHelperAvatarHTML(overshiftName, 32)}<span class="roster-shift-label roster-editable-label" contenteditable="true" data-rkey="label_helperOvershift" style="flex:0 0 90px;background:#22C55E;color:#063E1C;border-radius:6px;padding:2px 6px;text-align:center;">${rosterLabelText('label_helperOvershift','Overshift')}</span><span class="roster-shift-name">${rosterHelperPersonName(overshiftName)}</span></div>`] : [])
+    ...cutiNames.map(name => `<div class="roster-shift-row muted">${rosterHelperAvatarHTML(name, 32)}<span class="roster-shift-label roster-editable-label" contenteditable="true" data-rkey="label_helperCuti" style="flex:0 0 90px;background:#F5A623;color:#5C3D00;border-radius:6px;padding:2px 6px;text-align:center;">${rosterLabelText('label_helperCuti','Day-Off')}</span><span class="roster-shift-name roster-name-tip" data-role="${rosterHelperPersonRole(name)}">${rosterHelperPersonName(name)}</span></div>`),
+    ...(overshiftName ? [`<div class="roster-shift-row muted">${rosterHelperAvatarHTML(overshiftName, 32)}<span class="roster-shift-label roster-editable-label" contenteditable="true" data-rkey="label_helperOvershift" style="flex:0 0 90px;background:#22C55E;color:#063E1C;border-radius:6px;padding:2px 6px;text-align:center;">${rosterLabelText('label_helperOvershift','Overshift')}</span><span class="roster-shift-name roster-name-tip" data-role="${rosterHelperPersonRole(overshiftName)}">${rosterHelperPersonName(overshiftName)}</span></div>`] : [])
   ];
   const cutiHtml = infoRows.length ? `<div class="roster-daycard">
     <div class="roster-daycard-date roster-editable-label" contenteditable="true" data-rkey="label_helperInfoTambahan">${rosterLabelText('label_helperInfoTambahan','Info tambahan Helper hari ini')}</div>
@@ -1804,10 +1804,10 @@ function rosterTodayCard(rec, highlight){
           const shiftRows = ROSTER_HELPER_SHIFT_DEFS.map(def => {
             const code = h[def.key];
             if(!code || code === '-') return '';
-            return `<div class="roster-shift-row muted"><span class="roster-shift-label">Helper ${def.label}</span><span class="roster-cell-badge" style="background:${rosterHelperPersonColor(code)}">${rosterHelperShortCode(code)}</span><span class="roster-shift-name">${rosterHelperPersonName(code)}</span></div>`;
+            return `<div class="roster-shift-row muted"><span class="roster-shift-label">Helper ${def.label}</span><span class="roster-cell-badge" style="background:${rosterHelperPersonColor(code)}">${rosterHelperShortCode(code)}</span><span class="roster-shift-name roster-name-tip" data-role="${rosterHelperPersonRole(code)}">${rosterHelperPersonName(code)}</span></div>`;
           }).join('');
-          const cutiRow = (h.cuti && h.cuti !== '-') ? `<div class="roster-shift-row muted"><span class="roster-shift-label">Helper Day-Off</span><span class="roster-cell-badge" style="background:#F5A623;color:#5C3D00">${rosterHelperShortCode(h.cuti)}</span><span class="roster-shift-name">${rosterHelperPersonName(h.cuti)}</span></div>` : '';
-          const overshiftRow = (h.overshift && h.overshift !== '-') ? `<div class="roster-shift-row muted"><span class="roster-shift-label">Helper Overshift</span><span class="roster-cell-badge" style="background:#22C55E;color:#063E1C">${rosterHelperShortCode(h.overshift)}</span><span class="roster-shift-name">${rosterHelperPersonName(h.overshift)}</span></div>` : '';
+          const cutiRow = (h.cuti && h.cuti !== '-') ? `<div class="roster-shift-row muted"><span class="roster-shift-label">Helper Day-Off</span><span class="roster-cell-badge" style="background:#F5A623;color:#5C3D00">${rosterHelperShortCode(h.cuti)}</span><span class="roster-shift-name roster-name-tip" data-role="${rosterHelperPersonRole(h.cuti)}">${rosterHelperPersonName(h.cuti)}</span></div>` : '';
+          const overshiftRow = (h.overshift && h.overshift !== '-') ? `<div class="roster-shift-row muted"><span class="roster-shift-label">Helper Overshift</span><span class="roster-cell-badge" style="background:#22C55E;color:#063E1C">${rosterHelperShortCode(h.overshift)}</span><span class="roster-shift-name roster-name-tip" data-role="${rosterHelperPersonRole(h.overshift)}">${rosterHelperPersonName(h.overshift)}</span></div>` : '';
           return shiftRows + cutiRow + overshiftRow;
         })()}
       </div>
