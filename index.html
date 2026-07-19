@@ -319,6 +319,55 @@
   .roster-shiftnow-person{display:flex;align-items:center;gap:12px;}
   .roster-shiftnow-card.is-live .roster-avatar{width:56px !important;height:56px !important;border-color:#1E7A34;box-shadow:0 0 0 3px rgba(30,122,52,.15);}
   .roster-shiftnow-name{font-weight:bold;color:var(--navy);font-size:14px;}
+  /* ---- Tooltip role personil: muncul saat kursor didekatkan ke nama ---- */
+  .roster-name-tip{
+    position:relative;
+    cursor:help;
+    border-bottom:1.5px dashed rgba(31,56,100,.35);
+    transition:color .18s ease, border-color .18s ease;
+  }
+  .roster-name-tip:hover{
+    color:var(--accent);
+    border-color:var(--accent);
+  }
+  .roster-name-tip::after{
+    content:attr(data-role);
+    position:absolute;
+    left:50%;
+    bottom:calc(100% + 10px);
+    transform:translateX(-50%) translateY(6px) scale(.9);
+    background:linear-gradient(135deg, var(--navy), var(--accent));
+    color:#fff;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.2px;
+    white-space:nowrap;
+    padding:6px 12px;
+    border-radius:8px;
+    box-shadow:0 8px 20px rgba(31,56,100,.35);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s ease, transform .22s cubic-bezier(.22,.9,.32,1);
+    z-index:60;
+  }
+  .roster-name-tip::before{
+    content:'';
+    position:absolute;
+    left:50%;
+    bottom:calc(100% + 5px);
+    transform:translateX(-50%) translateY(6px) scale(.9);
+    border:5px solid transparent;
+    border-top-color:var(--accent);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s ease, transform .22s cubic-bezier(.22,.9,.32,1);
+    z-index:60;
+  }
+  .roster-name-tip:hover::after,
+  .roster-name-tip:hover::before{
+    opacity:1;
+    transform:translateX(-50%) translateY(0) scale(1);
+  }
   .roster-shiftnow-code{font-size:11px;color:var(--grey-fg);}
   .roster-daycard{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:16px;margin-bottom:12px;border:2px solid transparent;transition:box-shadow .2s ease,transform .2s ease;}
   .roster-daycard:hover{box-shadow:0 6px 16px rgba(31,56,100,.12);transform:translateY(-1px);}
@@ -1128,10 +1177,10 @@ const ROSTER_PHOTO_AS = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBD
 /* ================= ROSTER TEAM MONITORING (live-sync Google Sheets) ================= */
 const ROSTER_SHEET_ID = '1GO4bxREj-BN45e5XFll-mrov23hSTFokKjtby1LiwJg';
 const ROSTER_PERSONNEL = [
-  { code:'NFS', name:'Nico Fahryan Sandy', color:'#1F4E79', photo: ROSTER_PHOTO_NFS },
-  { code:'LG',  name:'Lukman Gunawan',     color:'#1E7A34', photo: ROSTER_PHOTO_LG },
-  { code:'TW',  name:'Taufik Wirayudha',   color:'#7F6000', photo: null },
-  { code:'AS',  name:'Adhe Setiawan',      color:'#9C0006', photo: ROSTER_PHOTO_AS }
+  { code:'NFS', name:'Nico Fahryan Sandy', color:'#1F4E79', photo: ROSTER_PHOTO_NFS, role:'Digitech Field Engineer' },
+  { code:'LG',  name:'Lukman Gunawan',     color:'#1E7A34', photo: ROSTER_PHOTO_LG,  role:'Digitech Field Engineer' },
+  { code:'TW',  name:'Taufik Wirayudha',   color:'#7F6000', photo: null,             role:'Digitech Field Engineer' },
+  { code:'AS',  name:'Adhe Setiawan',      color:'#9C0006', photo: ROSTER_PHOTO_AS,  role:'Digitech Field Engineer' }
 ];
 /* Jam shift aktual (dikonfirmasi Harris) - dipakai untuk deteksi "sedang bertugas sekarang".
    Shift saling overlap by design (buffer serah-terima), jadi bisa lebih dari 1 shift aktif bersamaan. */
@@ -1154,9 +1203,9 @@ let rosterLoaded = false;
 const ROSTER_HELPER_SHEET_ID = '1EPmkh20M7ptGBnlWIM73GxkgAtvumhNL';
 const ROSTER_HELPER_GID = '2120640525';
 const ROSTER_HELPER_PERSONNEL = [
-  { code:'Ferdy', shortCode:'FJS', name:'Ferdy Julian Siregar',      color:'#B45309', photo: ROSTER_HELPER_PHOTO_FJS },
-  { code:'Wahyu', shortCode:'WH',  name:'Wahyu',                     color:'#0F766E', photo: ROSTER_HELPER_PHOTO_WH },
-  { code:'Alam',  shortCode:'MRA', name:'Muhammad Rizki Alamsyah',   color:'#6D28D9', photo: ROSTER_HELPER_PHOTO_MRA }
+  { code:'Ferdy', shortCode:'FJS', name:'Ferdy Julian Siregar',      color:'#B45309', photo: ROSTER_HELPER_PHOTO_FJS, role:'Helper Digitech' },
+  { code:'Wahyu', shortCode:'WH',  name:'Wahyu',                     color:'#0F766E', photo: ROSTER_HELPER_PHOTO_WH,  role:'Helper Digitech' },
+  { code:'Alam',  shortCode:'MRA', name:'Muhammad Rizki Alamsyah',   color:'#6D28D9', photo: ROSTER_HELPER_PHOTO_MRA, role:'Helper Digitech' }
 ];
 const ROSTER_HELPER_SHIFT_DEFS = [
   { key:'shift1', label:'Shift 1', start:'06:00', end:'18:00' },
@@ -1168,6 +1217,10 @@ let rosterHelperCuti = [];  // list of {name, start, end} hasil parsing blok "Cu
 function rosterPersonName(code){
   const p = ROSTER_PERSONNEL.find(p => p.code === code);
   return p ? p.name : code;
+}
+function rosterPersonRole(code){
+  const p = ROSTER_PERSONNEL.find(p => p.code === code);
+  return p ? p.role : '';
 }
 function rosterPersonColor(code){
   const p = ROSTER_PERSONNEL.find(p => p.code === code);
@@ -1224,6 +1277,15 @@ function rosterHelperPersonName(code){
     if(p) return p.name;
   }
   return code;
+}
+function rosterHelperPersonRole(code){
+  if(!code || code === '-') return '';
+  const parts = code.split('/').map(s => s.trim());
+  if(parts.length === 1){
+    const p = ROSTER_HELPER_PERSONNEL.find(p => p.code === parts[0]);
+    if(p) return p.role;
+  }
+  return '';
 }
 function rosterHelperShortCode(code){
   if(!code || code === '-') return code;
@@ -1612,8 +1674,8 @@ function renderRoster(){
       html += `<div class="roster-daycard">
         <div class="roster-daycard-date roster-editable-label" contenteditable="true" data-rkey="label_infoTambahan">${rosterLabelText('label_infoTambahan','Info tambahan hari ini')}</div>
         <div class="roster-daycard-shifts">
-          ${todayRec.backup && todayRec.backup !== '-' ? `<div class="roster-shift-row muted">${rosterAvatarHTML(todayRec.backup, 32)}<span class="roster-shift-label roster-editable-label" contenteditable="true" data-rkey="label_backup" style="flex:0 0 90px;">${rosterLabelText('label_backup','Backup')}</span><span class="roster-shift-name">${rosterPersonName(todayRec.backup)}</span></div>` : ''}
-          ${todayRec.cuti && todayRec.cuti !== '-' ? `<div class="roster-shift-row muted">${rosterAvatarHTML(todayRec.cuti, 32)}<span class="roster-shift-label roster-editable-label" contenteditable="true" data-rkey="label_cuti" style="flex:0 0 90px;background:#F5A623;color:#5C3D00;border-radius:6px;padding:2px 6px;text-align:center;">${rosterLabelText('label_cuti','Day-Off')}</span><span class="roster-shift-name">${rosterPersonName(todayRec.cuti)}</span></div>` : ''}
+          ${todayRec.backup && todayRec.backup !== '-' ? `<div class="roster-shift-row muted">${rosterAvatarHTML(todayRec.backup, 32)}<span class="roster-shift-label roster-editable-label" contenteditable="true" data-rkey="label_backup" style="flex:0 0 90px;">${rosterLabelText('label_backup','Backup')}</span><span class="roster-shift-name roster-name-tip" data-role="${rosterPersonRole(todayRec.backup)}">${rosterPersonName(todayRec.backup)}</span></div>` : ''}
+          ${todayRec.cuti && todayRec.cuti !== '-' ? `<div class="roster-shift-row muted">${rosterAvatarHTML(todayRec.cuti, 32)}<span class="roster-shift-label roster-editable-label" contenteditable="true" data-rkey="label_cuti" style="flex:0 0 90px;background:#F5A623;color:#5C3D00;border-radius:6px;padding:2px 6px;text-align:center;">${rosterLabelText('label_cuti','Day-Off')}</span><span class="roster-shift-name roster-name-tip" data-role="${rosterPersonRole(todayRec.cuti)}">${rosterPersonName(todayRec.cuti)}</span></div>` : ''}
         </div>
       </div>`;
     }
@@ -1673,7 +1735,7 @@ function renderShiftNowGrid(rec, now){
         <div class="roster-shiftnow-person">
           ${rosterAvatarHTML(code, isLive ? 56 : 44)}
           <div>
-            <div class="roster-shiftnow-name">${hasPerson ? rosterPersonName(code) : '–'}</div>
+            <div class="roster-shiftnow-name${hasPerson ? ' roster-name-tip' : ''}"${hasPerson ? ` data-role="${rosterPersonRole(code)}"` : ''}>${hasPerson ? rosterPersonName(code) : '–'}</div>
             <div class="roster-shiftnow-code">${hasPerson ? code : 'Belum ada data'}</div>
           </div>
         </div>
@@ -1731,11 +1793,11 @@ function rosterTodayCard(rec, highlight){
     <div class="roster-daycard ${highlight ? 'highlight' : ''}">
       <div class="roster-daycard-date">${rec.weekday}, ${rec.date.getDate()} ${ROSTER_MONTHS_ID[rec.date.getMonth()]} ${rec.date.getFullYear()}</div>
       <div class="roster-daycard-shifts">
-        <div class="roster-shift-row"><span class="roster-shift-label">Shift 1 (07:00–19:00)</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.shift1)}">${rec.shift1}</span><span class="roster-shift-name">${rosterPersonName(rec.shift1)}</span></div>
-        <div class="roster-shift-row"><span class="roster-shift-label">Shift 2 (13:00–01:00)</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.shift2)}">${rec.shift2}</span><span class="roster-shift-name">${rosterPersonName(rec.shift2)}</span></div>
-        <div class="roster-shift-row"><span class="roster-shift-label">Shift 3 (20:00–08:00)</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.shift3)}">${rec.shift3}</span><span class="roster-shift-name">${rosterPersonName(rec.shift3)}</span></div>
-        ${rec.backup && rec.backup !== '-' ? `<div class="roster-shift-row muted"><span class="roster-shift-label">Backup</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.backup)}">${rec.backup}</span><span class="roster-shift-name">${rosterPersonName(rec.backup)}</span></div>` : ''}
-        ${rec.cuti && rec.cuti !== '-' ? `<div class="roster-shift-row muted"><span class="roster-shift-label">Day-Off</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.cuti)}">${rec.cuti}</span><span class="roster-shift-name">${rosterPersonName(rec.cuti)}</span></div>` : ''}
+        <div class="roster-shift-row"><span class="roster-shift-label">Shift 1 (07:00–19:00)</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.shift1)}">${rec.shift1}</span><span class="roster-shift-name roster-name-tip" data-role="${rosterPersonRole(rec.shift1)}">${rosterPersonName(rec.shift1)}</span></div>
+        <div class="roster-shift-row"><span class="roster-shift-label">Shift 2 (13:00–01:00)</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.shift2)}">${rec.shift2}</span><span class="roster-shift-name roster-name-tip" data-role="${rosterPersonRole(rec.shift2)}">${rosterPersonName(rec.shift2)}</span></div>
+        <div class="roster-shift-row"><span class="roster-shift-label">Shift 3 (20:00–08:00)</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.shift3)}">${rec.shift3}</span><span class="roster-shift-name roster-name-tip" data-role="${rosterPersonRole(rec.shift3)}">${rosterPersonName(rec.shift3)}</span></div>
+        ${rec.backup && rec.backup !== '-' ? `<div class="roster-shift-row muted"><span class="roster-shift-label">Backup</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.backup)}">${rec.backup}</span><span class="roster-shift-name roster-name-tip" data-role="${rosterPersonRole(rec.backup)}">${rosterPersonName(rec.backup)}</span></div>` : ''}
+        ${rec.cuti && rec.cuti !== '-' ? `<div class="roster-shift-row muted"><span class="roster-shift-label">Day-Off</span><span class="roster-cell-badge" style="background:${rosterPersonColor(rec.cuti)}">${rec.cuti}</span><span class="roster-shift-name roster-name-tip" data-role="${rosterPersonRole(rec.cuti)}">${rosterPersonName(rec.cuti)}</span></div>` : ''}
         ${(() => {
           const h = rosterHelperDays.find(d => sameDay(d.date, rec.date));
           if(!h) return '';
