@@ -737,11 +737,25 @@ async function gsGet(key){
   // response GET dari cache lama. Tanpa ini, saat pindah tab (mis. Follow Up -> Rekap)
   // browser bisa menampilkan data "followup:list" versi sebelum item terbaru disimpan,
   // sehingga item yang baru saja ditambahkan tampak hilang di Rekap padahal sudah tersimpan.
-  const res = await fetch(`${APPS_SCRIPT_URL}?action=get&key=${encodeURIComponent(key)}&_t=${Date.now()}`, { cache: 'no-store' });
-  if(!res.ok) throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
+  let res;
+  try{
+    res = await fetch(`${APPS_SCRIPT_URL}?action=get&key=${encodeURIComponent(key)}&_t=${Date.now()}`, { cache: 'no-store' });
+  }catch(networkErr){
+    // fetch gagal total (CORS/offline/diblokir) -> BUKAN berarti datanya kosong,
+    // tampilkan peringatan supaya tidak dikira "data hilang"
+    showConnectionErrorBanner(key, networkErr.message || 'network error');
+    throw networkErr;
+  }
+  if(!res.ok){
+    showConnectionErrorBanner(key, 'HTTP ' + res.status);
+    throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
+  }
   const data = await res.json();
-  if(data.error === 'not_found') throw new Error('not found');
-  if(data.error) throw new Error(data.message || data.error);
+  if(data.error === 'not_found') throw new Error('not found'); // ini legit "belum ada data", bukan error koneksi
+  if(data.error){
+    showConnectionErrorBanner(key, data.message || data.error);
+    throw new Error(data.message || data.error);
+  }
   _lastKnownValues[key] = data.value;
   return { key: data.key, value: data.value, shared: true };
 }
@@ -781,13 +795,41 @@ async function gsDelete(key){
 }
 async function gsList(prefix=''){
   requireStorageConfig();
-  const res = await fetch(`${APPS_SCRIPT_URL}?action=list&prefix=${encodeURIComponent(prefix)}&_t=${Date.now()}`, { cache: 'no-store' });
-  if(!res.ok) throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
+  let res;
+  try{
+    res = await fetch(`${APPS_SCRIPT_URL}?action=list&prefix=${encodeURIComponent(prefix)}&_t=${Date.now()}`, { cache: 'no-store' });
+  }catch(networkErr){
+    showConnectionErrorBanner('list:' + prefix, networkErr.message || 'network error');
+    throw networkErr;
+  }
+  if(!res.ok){
+    showConnectionErrorBanner('list:' + prefix, 'HTTP ' + res.status);
+    throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
+  }
   const data = await res.json();
-  if(data.error) throw new Error(data.message || data.error);
+  if(data.error){
+    showConnectionErrorBanner('list:' + prefix, data.message || data.error);
+    throw new Error(data.message || data.error);
+  }
   return { keys: data.keys || [], prefix, shared: true };
 }
 const store = { get: gsGet, set: gsSet, delete: gsDelete, list: gsList };
+
+/* Banner peringatan kalau GAGAL KONEK ke backend (bukan berarti data kosong).
+   Dulu error ini ditelan diam-diam oleh catch(e){ pakai default } di banyak
+   tempat, sehingga app tampak "semua data hilang" padahal cuma gagal fetch. */
+let _connectionErrorShown = false;
+function showConnectionErrorBanner(key, msg){
+  if (_connectionErrorShown) return;
+  _connectionErrorShown = true;
+  const b = document.createElement('div');
+  b.id = 'connErrorBanner';
+  b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#B3261E;color:#fff;padding:10px 16px;font-size:13px;font-weight:bold;text-align:center;font-family:Arial;cursor:pointer;';
+  b.textContent = '⚠️ Gagal memuat data dari server (' + msg + '). Data yang tampil di layar BUKAN data aslimu — data aslimu di Google Sheets AMAN. Coba refresh / buka lewat GitHub Pages, bukan file lokal. (klik untuk tutup)';
+  b.onclick = () => { b.remove(); _connectionErrorShown = false; };
+  document.body.prepend(b);
+  console.error('Connection error on key "' + key + '":', msg);
+}
 
 /* Banner peringatan kalau backend belum dikonfigurasi */
 function checkStorageConfigBanner(){
