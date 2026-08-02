@@ -1711,33 +1711,6 @@ function rosterCandidateSheetNames(){
    (google.visualization.Query) yang menangani sendiri detail JSONP/callback/escaping-nya -
    kita tinggal kirim query dan baca hasilnya. */
 let rosterGChartsPromise = null;
-// Cache roster ke localStorage supaya buka tab Roster tidak selalu fetch ulang 10 sheet
-// paralel (yang bisa makan puluhan detik). Data dianggap "segar" selama ROSTER_STALE_MS -
-// dalam rentang itu, buka/tutup tab Roster cukup render dari memori/cache, tanpa fetch.
-const ROSTER_CACHE_KEY = 'dcva_roster_cache_v1';
-const ROSTER_STALE_MS = 5 * 60 * 1000; // 5 menit, disamakan dengan interval auto-sync di bawah
-function saveRosterCache(){
-  try{
-    localStorage.setItem(ROSTER_CACHE_KEY, JSON.stringify({
-      rosterDays, rosterHelperDays, rosterHelperCuti, savedAt: Date.now()
-    }));
-  }catch(e){ /* localStorage penuh/diblokir - abaikan, cache cuma optimasi, tidak fatal */ }
-}
-function loadRosterCacheFromStorage(){
-  try{
-    const raw = localStorage.getItem(ROSTER_CACHE_KEY);
-    if(!raw) return false;
-    const cached = JSON.parse(raw);
-    if(!cached || !Array.isArray(cached.rosterDays)) return false;
-    rosterDays = cached.rosterDays.map(d => ({ ...d, date: new Date(d.date) }));
-    rosterHelperDays = (cached.rosterHelperDays || []).map(d => ({ ...d, date: new Date(d.date) }));
-    rosterHelperCuti = (cached.rosterHelperCuti || []).map(c => ({ ...c, start: new Date(c.start), end: new Date(c.end) }));
-    rosterLastSync = new Date(cached.savedAt);
-    rosterLoaded = true;
-    return true;
-  }catch(e){ return false; }
-}
-loadRosterCacheFromStorage(); // hydrate instan dari kunjungan sebelumnya (kalau ada) saat script dimuat
 function loadGoogleChartsOnce(){
   if(rosterGChartsPromise) return rosterGChartsPromise;
   rosterGChartsPromise = new Promise((resolve, reject) => {
@@ -1950,7 +1923,6 @@ async function loadRoster(){
   const helperResult = await helperPromise;
   if(helperResult){ rosterHelperDays = helperResult.days; rosterHelperCuti = helperResult.cuti; }
   renderRoster();
-  saveRosterCache();
 }
 function sameDay(a,b){ return a.toDateString() === b.toDateString(); }
 function startOfWeekBlockFor(date){
@@ -2142,11 +2114,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.getElementById('view-' + tab.dataset.view).classList.add('active');
     if(tab.dataset.view === 'rekap') renderRekap();
     if(tab.dataset.view === 'followup'){ renderFollowUp().then(clearOrderFormUnread); }
-    if(tab.dataset.view === 'roster'){
-      const isStale = !rosterLoaded || !rosterLastSync || (Date.now() - rosterLastSync.getTime() > ROSTER_STALE_MS);
-      if(isStale) loadRoster();
-      else renderRoster(); // data masih segar (<5 menit) - render instan tanpa fetch ulang
-    }
+    if(tab.dataset.view === 'roster') loadRoster();
   };
 });
 
