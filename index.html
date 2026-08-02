@@ -556,7 +556,10 @@
       <div class="fu-toolbar" id="fuFilterBar"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin:-4px 0 10px;">
         <span style="font-size:10.5px;color:#889;" id="orderformSyncInfo">Belum pernah cek Order Form.</span>
-        <button type="button" class="btn btn-ghost" id="orderformSyncBtn" style="font-size:11.5px;padding:6px 12px;">🔄 Cek Pengajuan Baru (Order Form)</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button type="button" class="btn btn-ghost" id="waTestBtn" title="Test Notif WA" aria-label="Test Notif WA" style="font-size:15px;padding:6px 10px;line-height:1;">📲</button>
+          <button type="button" class="btn btn-ghost" id="orderformSyncBtn" style="font-size:11.5px;padding:6px 12px;">🔄 Cek Pengajuan Baru (Order Form)</button>
+        </div>
       </div>
       <div id="fuList"></div>
     </div>
@@ -714,6 +717,115 @@ const ORDERFORM_LASTROW_KEY = "orderform:lastrow";
 const ORDERFORM_POLL_MS = 90000; // interval cek otomatis: 90 detik
 function orderformCsvUrl(){
   return `https://docs.google.com/spreadsheets/d/${ORDERFORM_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(ORDERFORM_SHEET_NAME)}&_t=${Date.now()}`;
+}
+
+/* ============================================================
+   KONFIGURASI NOTIFIKASI WHATSAPP (pengajuan RFID baru -> WA)
+   Pakai Fonnte (https://fonnte.com), TAPI dikirim lewat proxy Apps
+   Script (APPS_SCRIPT_URL yang sudah dipakai untuk storage di atas),
+   BUKAN langsung dari browser. Ini WAJIB, karena token Fonnte terikat
+   ke device WA asli — kalau ditaruh di file HTML (client-side),
+   siapa pun yang "view source" halaman bisa mencuri token itu dan
+   pakai nomor WA Harris untuk kirim pesan tanpa izin. Dengan lewat
+   Apps Script, token cukup disimpan di kode Code.gs (server-side),
+   tidak pernah terkirim ke browser.
+
+   CARA AKTIFKAN:
+   1. Daftar & scan QR device di dashboard Fonnte (md.fonnte.com/new/register.php),
+      pakai nomor WA kedua/cadangan (disarankan, bukan nomor utama).
+   2. Copy Token device dari dashboard Fonnte.
+   3. Buka Apps Script (Code.gs) yang sudah dipakai untuk backend storage
+      DCVA, isi variabel FONNTE_TOKEN di sana dengan token dari langkah 2.
+   4. Deploy > Manage deployments > Edit > New version > Deploy (WAJIB,
+      kalau tidak perubahan token tidak aktif).
+   5. Isi WA_RECIPIENTS di bawah ini dengan nomor WA tujuan (62xxx, TANPA
+      tanda +) — token TIDAK diisi di sini, cukup di Code.gs.
+
+   CATATAN:
+   - Notif ini terkirim saat aplikasi DCVA terbuka di browser (mengikuti
+     jadwal polling ORDERFORM_POLL_MS di atas, tiap 90 detik).
+   - Mau kirim ke lebih dari 1 nomor tinggal tambah baris di WA_RECIPIENTS,
+     satu device Fonnte bisa kirim ke banyak nomor tujuan.
+   ============================================================ */
+const WA_NOTIF_ENABLED = true; // set false untuk mematikan notifikasi WA tanpa hapus konfigurasi
+const WA_RECIPIENTS = [
+  { name: "Harris", phone: "6282158107539" } // <-- WAJIB diisi nomor WA tujuan (62xxx, tanpa tanda +)
+  // Tambah baris lain kalau mau kirim ke nomor lain juga (mis. setelah tahap testing selesai), contoh:
+  // { name: "Nico", phone: "62812xxxxxxx" },
+];
+
+/* ============================================================
+   KONFIGURASI LOG RIWAYAT PENGIRIMAN WA (spreadsheet "Fonnte", TERPISAH
+   dari backend DCVA/APPS_SCRIPT_URL di atas). Setiap kali notifikasi WA
+   dicoba dikirim (baik notifikasi RFID baru maupun tombol "Test Notif WA"),
+   satu baris log (waktu, nama, nomor, isi pesan, status) otomatis ditambahkan
+   ke sheet ini - supaya Harris bisa audit riwayat pengiriman.
+
+   CARA AKTIFKAN (sekali saja, terpisah dari Apps Script DCVA):
+   1. Buka spreadsheet "Fonnte" ini:
+      https://docs.google.com/spreadsheets/d/1umllxyLjiowBFtQLOvl7CMOmr4wGw6y1bWM5Eumw7yw/edit
+   2. Extensions > Apps Script, lalu tempel kode dari file "Code_FonnteLog.gs"
+      (dibuatkan terpisah, lihat panduan yang diberikan bersama file ini).
+   3. Deploy > New deployment > Web app > Execute as: Me > Who has access: Anyone.
+   4. Copy URL Web App-nya (format: https://script.google.com/macros/s/XXXX/exec)
+   5. Paste ke FONNTE_LOG_URL di bawah ini, ganti nilai kosong "".
+
+   CATATAN: kegagalan logging TIDAK PERNAH menggagalkan pengiriman WA yang
+   sesungguhnya (fire-and-forget) - log ini murni pencatatan tambahan.
+   ============================================================ */
+const FONNTE_LOG_URL = "https://script.google.com/macros/s/AKfycbyJPCjVaNDUnY7Ku9qex1wR7p-RyZxdM0pAL-ONk9mz3MUt4jG13nYQeXWj63uYgLuaUA/exec"; // <-- WAJIB diisi setelah deploy Apps Script log (lihat panduan di atas)
+
+function logWaHistory(entry){
+  if(!FONNTE_LOG_URL) return; // logging belum dikonfigurasi, lewati diam-diam
+  try{
+    const url = `${FONNTE_LOG_URL}?action=log`
+      + `&waktu=${encodeURIComponent(new Date().toLocaleString('id-ID'))}`
+      + `&nama=${encodeURIComponent(entry.name || '-')}`
+      + `&nomor=${encodeURIComponent(entry.phone || '-')}`
+      + `&pesan=${encodeURIComponent(entry.message || '-')}`
+      + `&status=${encodeURIComponent(entry.status || '-')}`
+      + `&keterangan=${encodeURIComponent(entry.detail || '')}`
+      + `&_t=${Date.now()}`;
+    fetch(url, { cache: 'no-store' }).catch(() => { /* log gagal tidak boleh mengganggu app */ });
+  }catch(e){ /* abaikan, logging bersifat best-effort */ }
+}
+
+function waFormatMessage(items){
+  const head = `🔔 *Request - RFID Baru*\n`;
+  const body = items.slice(0, 5).map(it =>
+    `\n👤 ${it.pic}\n🏢 Mitra: ${it.vendor}\n🏷️ ${it.desc}\n🔢 ${it.note}`
+  ).join('\n');
+  const more = items.length > 5 ? `\n\n+${items.length - 5} pengajuan lainnya...` : '';
+  return head + body + more + `\n\n> _Sent via PushWa.com_`;
+}
+
+async function sendWhatsAppNotif(items){
+  if(!WA_NOTIF_ENABLED || !items || items.length === 0) return { ok: false, error: 'disabled_or_empty' };
+  if(!APPS_SCRIPT_URL){
+    console.warn('WA notif dilewati: APPS_SCRIPT_URL belum diisi.');
+    return { ok: false, error: 'apps_script_url_missing' };
+  }
+  const message = waFormatMessage(items);
+  const results = [];
+  for(const r of WA_RECIPIENTS){
+    if(!r.phone){
+      console.warn(`WA notif dilewati untuk "${r.name}": phone belum diisi di WA_RECIPIENTS.`);
+      continue;
+    }
+    try{
+      const url = `${APPS_SCRIPT_URL}?action=send_wa&phone=${encodeURIComponent(r.phone)}&message=${encodeURIComponent(message)}&_t=${Date.now()}`;
+      const res = await fetch(url, { cache: 'no-store' });
+      const data = await res.json().catch(() => null);
+      if(!data || !data.ok) console.warn(`Gagal kirim notif WA ke ${r.name} (via Fonnte/Apps Script):`, data);
+      results.push({ name: r.name, ...(data || { ok: false }) });
+      logWaHistory({ name: r.name, phone: r.phone, message, status: (data && data.ok) ? 'Terkirim' : 'Gagal', detail: (data && data.message) ? data.message : (data ? JSON.stringify(data) : 'Tidak ada respons dari Apps Script') });
+    }catch(e){
+      console.warn(`Gagal kirim notif WA ke ${r.name}:`, e);
+      results.push({ name: r.name, ok: false, error: String(e) });
+      logWaHistory({ name: r.name, phone: r.phone, message, status: 'Gagal', detail: String(e) });
+    }
+  }
+  return results;
 }
 
 
@@ -3315,6 +3427,7 @@ async function syncOrderForm(opts){
         if(document.getElementById('view-followup').classList.contains('active')) renderFollowUp();
         else updateFollowUpBadge();
         showOrderFormAlert(trulyNew);
+        sendWhatsAppNotif(trulyNew);
       }
     }
 
@@ -3388,6 +3501,31 @@ async function clearOrderFormUnread(){
 
 const orderformSyncBtnEl = document.getElementById('orderformSyncBtn');
 if(orderformSyncBtnEl) orderformSyncBtnEl.onclick = () => syncOrderForm({ silent: false });
+
+const waTestBtnEl = document.getElementById('waTestBtn');
+if(waTestBtnEl){
+  waTestBtnEl.onclick = async () => {
+    const notConfigured = WA_RECIPIENTS.filter(r => !r.phone);
+    if(!WA_NOTIF_ENABLED){
+      showToast('⚠️ WA_NOTIF_ENABLED = false. Aktifkan dulu di config script.', 'error'); return;
+    }
+    if(!APPS_SCRIPT_URL){
+      showToast('⚠️ APPS_SCRIPT_URL belum diisi di config script.', 'error'); return;
+    }
+    if(notConfigured.length === WA_RECIPIENTS.length){
+      showToast('⚠️ Nomor WA di WA_RECIPIENTS belum diisi.', 'error'); return;
+    }
+    waTestBtnEl.disabled = true; waTestBtnEl.textContent = '⏳';
+    const results = await sendWhatsAppNotif([{
+      pic: 'Test User', vendor: 'Test Mitra',
+      desc: 'Permintaan Tag: Test', note: 'Jumlah RFID: 1 (ini pesan uji coba)'
+    }]);
+    waTestBtnEl.disabled = false; waTestBtnEl.textContent = '📲';
+    const anyFail = !Array.isArray(results) || results.length === 0 || results.some(r => !r.ok);
+    if(anyFail) showToast('✗ Gagal kirim ke WA. Cek FONNTE_TOKEN di Code.gs & console (F12) untuk detail.', 'error');
+    else showToast('✓ Pesan test WA terkirim! Cek WhatsApp dalam beberapa detik.', 'success');
+  };
+}
 
 /* ---------------- INIT ---------------- */
 const rekapFuDebugToggleBtn = document.getElementById('rekapFuDebugToggle');
