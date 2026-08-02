@@ -905,7 +905,30 @@ async function gsList(prefix=''){
   }
   return { keys: data.keys || [], prefix, shared: true };
 }
-const store = { get: gsGet, set: gsSet, delete: gsDelete, list: gsList };
+/* BULK FETCH: satu request ke Apps Script yang langsung mengembalikan SEMUA key+value
+   sekaligus (bukan cuma daftar key seperti gsList). Ini yang dipakai Rekap supaya TIDAK
+   perlu memanggil get() satu-per-satu untuk tiap key (itulah penyebab HTTP 404 menumpuk
+   saat riwayat checklist sudah banyak). Perlu action=listValues di Code.gs (lihat catatan
+   di bawah gsListValues). Kalau backend belum punya action ini, otomatis fallback ke cara
+   lama (list + get satu-satu) supaya app tetap jalan sementara Code.gs belum di-deploy ulang. */
+async function gsListValues(prefix=''){
+  requireStorageConfig();
+  let res;
+  try{
+    res = await gsQueuedFetch(`${APPS_SCRIPT_URL}?action=listValues&prefix=${encodeURIComponent(prefix)}&_t=${Date.now()}`);
+  }catch(networkErr){
+    throw networkErr;
+  }
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if(data.error) throw new Error(data.message || data.error);
+  // data.items diharapkan berbentuk [{key, value, updated_at}, ...]
+  if(!data.items) throw new Error('backend belum mendukung action=listValues');
+  data.items.forEach(it => { _lastKnownValues[it.key] = it.value; });
+  return data.items;
+}
+
+const store = { get: gsGet, set: gsSet, delete: gsDelete, list: gsList, listValues: gsListValues };
 
 /* Banner peringatan kalau GAGAL KONEK ke backend (bukan berarti data kosong).
    Dulu error ini ditelan diam-diam oleh catch(e){ pakai default } di banyak
@@ -2356,12 +2379,38 @@ async function fetchAllEntries(force){
   if(!force && allEntriesCache && (Date.now() - allEntriesCacheTime) < REKAP_CACHE_TTL_MS){
     return allEntriesCache;
   }
-  const res = await store.list('checklist:');
   const map = {};
+
+  // JALUR CEPAT: 1 request bulk yang mengembalikan semua key+value langsung dari Code.gs.
+  // Ini menggantikan cara lama (list lalu get satu-per-satu -> puluhan/ratusan request)
+  // yang jadi penyebab HTTP 404 menumpuk waktu riwayat checklist sudah banyak.
+  try{
+    const items = await store.listValues('checklist:');
+    items.forEach(it => {
+      if(it.key.includes('::backup')) return;
+      const rest = it.key.replace('checklist:','');
+      const parts = rest.split(':');
+      const dateStr = parts[0];
+      const shiftKey = parts[1] || 'legacy';
+      try{
+        if(!map[dateStr]) map[dateStr] = {};
+        map[dateStr][shiftKey] = JSON.parse(it.value);
+      }catch(e){ /* lewati kalau satu item korup, jangan sampai gagalkan semua */ }
+    });
+    allEntriesCache = map;
+    allEntriesCacheTime = Date.now();
+    return map;
+  }catch(bulkErr){
+    console.warn('Bulk fetch (listValues) gagal, fallback ke cara lama satu-per-satu:', bulkErr.message);
+  }
+
+  // FALLBACK LAMA: dipakai otomatis kalau Code.gs belum di-update dengan action=listValues.
+  // Catatan: dengan riwayat checklist yang sudah banyak, jalur ini kemungkinan besar akan
+  // kena HTTP 404 lagi -- solusi permanennya tetap deploy ulang Code.gs dengan action=listValues.
+  const res = await store.list('checklist:');
   if(res && res.keys){
     for(const k of res.keys){
-      if(k.includes('::backup')) continue; // key cadangan tidak perlu dihitung di Rekap, dan
-                                            // sebelumnya ikut ke-fetch percuma (2x lipat request)
+      if(k.includes('::backup')) continue;
       const rest = k.replace('checklist:','');
       const parts = rest.split(':');
       const dateStr = parts[0];
