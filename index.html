@@ -731,6 +731,80 @@ function requireStorageConfig(){
    penyimpanan utama (dikirim fire-and-forget). ---- */
 const _lastKnownValues = {};
 
+/* ---------------- ANTRIAN & RETRY untuk request ke Apps Script ----------------
+   Google Apps Script Web App (akun non-Workspace) punya batas jumlah eksekusi
+   yang boleh berjalan BERSAMAAN. Dashboard ini memanggil banyak key sekaligus
+   saat halaman dibuka (checklist, roster, label, header config, dsb — bisa
+   20-30 request dalam sekejap), sehingga sebagian request bisa "tabrakan" di
+   endpoint internal Google (script.googleusercontent.com/macros/echo) dan
+   balik dengan HTTP 404 — padahal URL & Code.gs-nya sendiri benar (terbukti
+   kalau dites satu-per-satu manual di address bar selalu berhasil).
+
+   Solusinya BUKAN ganti URL/Code.gs, tapi membatasi & mengatur cara halaman
+   ini memanggil backend:
+   1) Membatasi jumlah request yang berjalan bersamaan (MAX_CONCURRENT_GS_REQUESTS),
+      sisanya otomatis antre dan jalan begitu slot kosong.
+   2) Retry otomatis (dengan jeda singkat) kalau kena HTTP 404 atau network error,
+      SEBELUM dianggap benar-benar gagal & memunculkan banner merah. 404 di sini
+      biasanya transient (tabrakan concurrency), jadi biasanya berhasil di
+      percobaan ke-2/ke-3 tanpa user sadar ada masalah. ---- */
+const MAX_CONCURRENT_GS_REQUESTS = 3;
+let _gsActiveCount = 0;
+const _gsQueue = [];
+
+function _gsRunNext(){
+  if (_gsActiveCount >= MAX_CONCURRENT_GS_REQUESTS) return;
+  const job = _gsQueue.shift();
+  if (!job) return;
+  _gsActiveCount++;
+  job.fn().then(job.resolve, job.reject).finally(() => {
+    _gsActiveCount--;
+    _gsRunNext();
+  });
+}
+
+function _gsEnqueue(fn){
+  return new Promise((resolve, reject) => {
+    _gsQueue.push({ fn, resolve, reject });
+    _gsRunNext();
+  });
+}
+
+function _gsSleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+/* fetch dengan retry, khusus untuk error yang sifatnya transient (network gagal
+   total, atau HTTP 404 akibat tabrakan concurrency Apps Script). HTTP lain
+   (mis. 500 dari bug di Code.gs) tetap langsung dikembalikan tanpa retry
+   berkali-kali karena itu bukan soal antrean & retry tidak akan membantu. */
+async function _gsFetchWithRetry(url, maxRetries){
+  if (maxRetries === undefined) maxRetries = 2;
+  let lastErr;
+  for (let attempt = 0; attempt <= maxRetries; attempt++){
+    try{
+      const res = await fetch(url, { cache: 'no-store' });
+      if (res.status === 404 && attempt < maxRetries){
+        await _gsSleep(350 * (attempt + 1));
+        continue; // kemungkinan besar cuma tabrakan concurrency sesaat, coba lagi
+      }
+      return res;
+    }catch(networkErr){
+      lastErr = networkErr;
+      if (attempt < maxRetries){
+        await _gsSleep(350 * (attempt + 1));
+        continue;
+      }
+      throw networkErr;
+    }
+  }
+  throw lastErr || new Error('gagal setelah retry');
+}
+
+/* Semua pemanggilan ke Apps Script HARUS lewat sini (bukan fetch() langsung),
+   supaya kena antrean + retry di atas. */
+function gsQueuedFetch(url){
+  return _gsEnqueue(function(){ return _gsFetchWithRetry(url); });
+}
+
 async function gsGet(key){
   requireStorageConfig();
   // cache: 'no-store' + parameter timestamp (_t) supaya browser TIDAK pernah menyajikan
@@ -739,7 +813,7 @@ async function gsGet(key){
   // sehingga item yang baru saja ditambahkan tampak hilang di Rekap padahal sudah tersimpan.
   let res;
   try{
-    res = await fetch(`${APPS_SCRIPT_URL}?action=get&key=${encodeURIComponent(key)}&_t=${Date.now()}`, { cache: 'no-store' });
+    res = await gsQueuedFetch(`${APPS_SCRIPT_URL}?action=get&key=${encodeURIComponent(key)}&_t=${Date.now()}`);
   }catch(networkErr){
     // fetch gagal total (CORS/offline/diblokir) -> BUKAN berarti datanya kosong,
     // tampilkan peringatan supaya tidak dikira "data hilang"
@@ -768,7 +842,7 @@ async function gsSet(key, value){
     const prevValue = _lastKnownValues[key];
     if(prevValue !== undefined && prevValue !== null && prevValue !== value){
       const backupUrl = `${APPS_SCRIPT_URL}?action=set&key=${encodeURIComponent(key + '::backup')}&value=${encodeURIComponent(prevValue)}&_t=${Date.now()}`;
-      fetch(backupUrl, { cache: 'no-store' }).catch(()=>{ /* backup gagal tidak boleh menghambat simpan utama */ });
+      gsQueuedFetch(backupUrl).catch(()=>{ /* backup gagal tidak boleh menghambat simpan utama */ });
     }
   }catch(e){ /* abaikan, backup bersifat best-effort */ }
 
@@ -777,8 +851,17 @@ async function gsSet(key, value){
   // tengah jalan saat di-fetch dari domain lain (cross-origin), menyebabkan "Failed to fetch".
   // GET tidak kena masalah ini karena parameter ikut di URL, bukan di body.
   const url = `${APPS_SCRIPT_URL}?action=set&key=${encodeURIComponent(key)}&value=${encodeURIComponent(value)}&_t=${Date.now()}`;
-  const res = await fetch(url, { cache: 'no-store' });
-  if(!res.ok) throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
+  let res;
+  try{
+    res = await gsQueuedFetch(url);
+  }catch(networkErr){
+    showConnectionErrorBanner(key, networkErr.message || 'network error');
+    throw networkErr;
+  }
+  if(!res.ok){
+    showConnectionErrorBanner(key, 'HTTP ' + res.status);
+    throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
+  }
   const data = await res.json();
   if(data.error) throw new Error(data.message || data.error);
   _lastKnownValues[key] = value;
@@ -787,8 +870,17 @@ async function gsSet(key, value){
 async function gsDelete(key){
   requireStorageConfig();
   const url = `${APPS_SCRIPT_URL}?action=delete&key=${encodeURIComponent(key)}&_t=${Date.now()}`;
-  const res = await fetch(url, { cache: 'no-store' });
-  if(!res.ok) throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
+  let res;
+  try{
+    res = await gsQueuedFetch(url);
+  }catch(networkErr){
+    showConnectionErrorBanner(key, networkErr.message || 'network error');
+    throw networkErr;
+  }
+  if(!res.ok){
+    showConnectionErrorBanner(key, 'HTTP ' + res.status);
+    throw new Error('Gagal terhubung ke backend (HTTP ' + res.status + ')');
+  }
   const data = await res.json();
   if(data.error) throw new Error(data.message || data.error);
   return { key: data.key, deleted: data.deleted, shared: true };
@@ -797,7 +889,7 @@ async function gsList(prefix=''){
   requireStorageConfig();
   let res;
   try{
-    res = await fetch(`${APPS_SCRIPT_URL}?action=list&prefix=${encodeURIComponent(prefix)}&_t=${Date.now()}`, { cache: 'no-store' });
+    res = await gsQueuedFetch(`${APPS_SCRIPT_URL}?action=list&prefix=${encodeURIComponent(prefix)}&_t=${Date.now()}`);
   }catch(networkErr){
     showConnectionErrorBanner('list:' + prefix, networkErr.message || 'network error');
     throw networkErr;
