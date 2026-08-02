@@ -2362,6 +2362,10 @@ document.getElementById('picInput').onchange = scheduleSave;
 
 /* ================= REKAP ENGINE ================= */
 let rekapMode = 'week';
+let rekapMonthValue = todayStr().slice(0,7); // "YYYY-MM" — disimpan terpisah dari DOM supaya
+                                               // pilihan bulan TIDAK reset tiap kali Rekap re-render
+let _rekapBusy = false; // true selama Rekap sedang bulk-fetch ke Apps Script — dipakai supaya
+                         // auto-sync Order Form (background) menunda diri, tidak saling tabrakan
 let allEntriesCache = null; // { dateStr: data }
 let allEntriesCacheTime = 0;
 const REKAP_CACHE_TTL_MS = 20000; // 20 detik — cukup supaya gonta-ganti Mingguan/Bulanan/Tahunan
@@ -2380,53 +2384,60 @@ async function fetchAllEntries(force){
     return allEntriesCache;
   }
   const map = {};
-
-  // JALUR CEPAT: 1 request bulk yang mengembalikan semua key+value langsung dari Code.gs.
-  // Ini menggantikan cara lama (list lalu get satu-per-satu -> puluhan/ratusan request)
-  // yang jadi penyebab HTTP 404 menumpuk waktu riwayat checklist sudah banyak.
+  // Selama Rekap sedang menembak banyak/berat ke Apps Script, tandai "busy" supaya proses lain
+  // (khususnya auto-sync Order Form yang jalan tiap beberapa menit di background) tahu untuk
+  // menunda diri dulu -- ini yang sebelumnya sering tabrakan dan sama-sama kena HTTP 404.
+  _rekapBusy = true;
   try{
-    const items = await store.listValues('checklist:');
-    items.forEach(it => {
-      if(it.key.includes('::backup')) return;
-      const rest = it.key.replace('checklist:','');
-      const parts = rest.split(':');
-      const dateStr = parts[0];
-      const shiftKey = parts[1] || 'legacy';
-      try{
-        if(!map[dateStr]) map[dateStr] = {};
-        map[dateStr][shiftKey] = JSON.parse(it.value);
-      }catch(e){ /* lewati kalau satu item korup, jangan sampai gagalkan semua */ }
-    });
+    // JALUR CEPAT: 1 request bulk yang mengembalikan semua key+value langsung dari Code.gs.
+    // Ini menggantikan cara lama (list lalu get satu-per-satu -> puluhan/ratusan request)
+    // yang jadi penyebab HTTP 404 menumpuk waktu riwayat checklist sudah banyak.
+    try{
+      const items = await store.listValues('checklist:');
+      items.forEach(it => {
+        if(it.key.includes('::backup')) return;
+        const rest = it.key.replace('checklist:','');
+        const parts = rest.split(':');
+        const dateStr = parts[0];
+        const shiftKey = parts[1] || 'legacy';
+        try{
+          if(!map[dateStr]) map[dateStr] = {};
+          map[dateStr][shiftKey] = JSON.parse(it.value);
+        }catch(e){ /* lewati kalau satu item korup, jangan sampai gagalkan semua */ }
+      });
+      allEntriesCache = map;
+      allEntriesCacheTime = Date.now();
+      return map;
+    }catch(bulkErr){
+      console.warn('Bulk fetch (listValues) gagal, fallback ke cara lama satu-per-satu:', bulkErr.message);
+    }
+
+    // FALLBACK LAMA: dipakai otomatis kalau Code.gs belum di-update dengan action=listValues.
+    // Catatan: dengan riwayat checklist yang sudah banyak, jalur ini kemungkinan besar akan
+    // kena HTTP 404 lagi -- solusi permanennya tetap deploy ulang Code.gs dengan action=listValues.
+    const res = await store.list('checklist:');
+    if(res && res.keys){
+      for(const k of res.keys){
+        if(k.includes('::backup')) continue;
+        const rest = k.replace('checklist:','');
+        const parts = rest.split(':');
+        const dateStr = parts[0];
+        const shiftKey = parts[1] || 'legacy';
+        try{
+          const r = await store.get(k);
+          if(r && r.value){
+            if(!map[dateStr]) map[dateStr] = {};
+            map[dateStr][shiftKey] = JSON.parse(r.value);
+          }
+        }catch(e){ /* skip */ }
+      }
+    }
     allEntriesCache = map;
     allEntriesCacheTime = Date.now();
     return map;
-  }catch(bulkErr){
-    console.warn('Bulk fetch (listValues) gagal, fallback ke cara lama satu-per-satu:', bulkErr.message);
+  } finally {
+    _rekapBusy = false;
   }
-
-  // FALLBACK LAMA: dipakai otomatis kalau Code.gs belum di-update dengan action=listValues.
-  // Catatan: dengan riwayat checklist yang sudah banyak, jalur ini kemungkinan besar akan
-  // kena HTTP 404 lagi -- solusi permanennya tetap deploy ulang Code.gs dengan action=listValues.
-  const res = await store.list('checklist:');
-  if(res && res.keys){
-    for(const k of res.keys){
-      if(k.includes('::backup')) continue;
-      const rest = k.replace('checklist:','');
-      const parts = rest.split(':');
-      const dateStr = parts[0];
-      const shiftKey = parts[1] || 'legacy';
-      try{
-        const r = await store.get(k);
-        if(r && r.value){
-          if(!map[dateStr]) map[dateStr] = {};
-          map[dateStr][shiftKey] = JSON.parse(r.value);
-        }
-      }catch(e){ /* skip */ }
-    }
-  }
-  allEntriesCache = map;
-  allEntriesCacheTime = Date.now();
-  return map;
 }
 
 function isoWeekRange(dateStr){
@@ -2458,8 +2469,39 @@ function buildRekapControls(){
     c.innerHTML = `<div><label>Pilih tanggal (dalam minggu tsb)</label><input type="date" id="rekapWeekDate" value="${todayStr()}"></div>`;
     document.getElementById('rekapWeekDate').onchange = () => renderRekap();
   } else if(rekapMode === 'month'){
-    c.innerHTML = `<div><label>Pilih bulan</label><input type="month" id="rekapMonth" value="${todayStr().slice(0,7)}"></div>`;
-    document.getElementById('rekapMonth').onchange = () => renderRekap();
+    c.innerHTML = `<div>
+      <label>Pilih bulan</label>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button type="button" id="rekapMonthPrev" class="btn btn-ghost" style="padding:7px 11px;font-size:14px;">‹</button>
+        <select id="rekapMonthSelect" style="border:1px solid #c7d3e0;border-radius:6px;padding:7px 9px;font-size:13px;font-family:Arial;"></select>
+        <input type="number" id="rekapMonthYear" style="width:72px;border:1px solid #c7d3e0;border-radius:6px;padding:7px 9px;font-size:13px;font-family:Arial;">
+        <button type="button" id="rekapMonthNext" class="btn btn-ghost" style="padding:7px 11px;font-size:14px;">›</button>
+      </div>
+    </div>`;
+    const MONTH_NAMES_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const selEl = document.getElementById('rekapMonthSelect');
+    selEl.innerHTML = MONTH_NAMES_ID.map((nm,i) => `<option value="${i+1}">${nm}</option>`).join('');
+    const [curY, curM] = rekapMonthValue.split('-').map(Number);
+    selEl.value = String(curM);
+    document.getElementById('rekapMonthYear').value = curY;
+    const applyMonthChange = (y, m) => {
+      if(m < 1){ m = 12; y -= 1; }
+      if(m > 12){ m = 1; y += 1; }
+      rekapMonthValue = `${y}-${String(m).padStart(2,'0')}`;
+      renderRekap();
+    };
+    document.getElementById('rekapMonthSelect').onchange = () => {
+      applyMonthChange(Number(document.getElementById('rekapMonthYear').value) || curY, Number(document.getElementById('rekapMonthSelect').value));
+    };
+    document.getElementById('rekapMonthYear').onchange = () => {
+      applyMonthChange(Number(document.getElementById('rekapMonthYear').value) || curY, Number(document.getElementById('rekapMonthSelect').value) || curM);
+    };
+    document.getElementById('rekapMonthPrev').onclick = () => {
+      applyMonthChange(Number(document.getElementById('rekapMonthYear').value) || curY, (Number(document.getElementById('rekapMonthSelect').value) || curM) - 1);
+    };
+    document.getElementById('rekapMonthNext').onclick = () => {
+      applyMonthChange(Number(document.getElementById('rekapMonthYear').value) || curY, (Number(document.getElementById('rekapMonthSelect').value) || curM) + 1);
+    };
   } else {
     const y = new Date().getFullYear();
     c.innerHTML = `<div><label>Pilih tahun</label><input type="number" id="rekapYear" value="${y}" style="width:100px;"></div>`;
@@ -2486,7 +2528,7 @@ async function renderRekap(force){
     periodDates = isoWeekRange(base);
     renderWeekDetail(periodDates);
   } else if(rekapMode === 'month'){
-    const ym = document.getElementById('rekapMonth') ? document.getElementById('rekapMonth').value : todayStr().slice(0,7);
+    const ym = rekapMonthValue;
     const [y,m] = ym.split('-').map(Number);
     const daysInMonth = new Date(y, m, 0).getDate();
     for(let d=1; d<=daysInMonth; d++){
@@ -3237,6 +3279,13 @@ function setOrderformSyncInfo(text){
 
 async function syncOrderForm(opts){
   opts = opts || {};
+  // Kalau ini pemanggilan otomatis di background (silent) DAN Rekap sedang sibuk bulk-fetch,
+  // lewati siklus ini saja -- akan dicoba lagi otomatis di interval berikutnya (ORDERFORM_POLL_MS).
+  // Ini mencegah dua proses berbeda sama-sama menembak Apps Script bersamaan lalu sama-sama 404.
+  if(_rekapBusy && opts.silent){
+    setOrderformSyncInfo('Menunda cek (Rekap sedang memuat data)…');
+    return;
+  }
   const btn = document.getElementById('orderformSyncBtn');
   if(btn && !opts.silent){ btn.disabled = true; btn.textContent = '🔄 Mengecek...'; }
   try{
