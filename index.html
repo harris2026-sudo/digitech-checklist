@@ -748,7 +748,7 @@ const _lastKnownValues = {};
       SEBELUM dianggap benar-benar gagal & memunculkan banner merah. 404 di sini
       biasanya transient (tabrakan concurrency), jadi biasanya berhasil di
       percobaan ke-2/ke-3 tanpa user sadar ada masalah. ---- */
-const MAX_CONCURRENT_GS_REQUESTS = 3;
+const MAX_CONCURRENT_GS_REQUESTS = 2;
 let _gsActiveCount = 0;
 const _gsQueue = [];
 
@@ -777,20 +777,20 @@ function _gsSleep(ms){ return new Promise(r => setTimeout(r, ms)); }
    (mis. 500 dari bug di Code.gs) tetap langsung dikembalikan tanpa retry
    berkali-kali karena itu bukan soal antrean & retry tidak akan membantu. */
 async function _gsFetchWithRetry(url, maxRetries){
-  if (maxRetries === undefined) maxRetries = 2;
+  if (maxRetries === undefined) maxRetries = 3;
   let lastErr;
   for (let attempt = 0; attempt <= maxRetries; attempt++){
     try{
       const res = await fetch(url, { cache: 'no-store' });
       if (res.status === 404 && attempt < maxRetries){
-        await _gsSleep(350 * (attempt + 1));
+        await _gsSleep(400 * (attempt + 1));
         continue; // kemungkinan besar cuma tabrakan concurrency sesaat, coba lagi
       }
       return res;
     }catch(networkErr){
       lastErr = networkErr;
       if (attempt < maxRetries){
-        await _gsSleep(350 * (attempt + 1));
+        await _gsSleep(400 * (attempt + 1));
         continue;
       }
       throw networkErr;
@@ -2340,14 +2340,28 @@ document.getElementById('picInput').onchange = scheduleSave;
 /* ================= REKAP ENGINE ================= */
 let rekapMode = 'week';
 let allEntriesCache = null; // { dateStr: data }
+let allEntriesCacheTime = 0;
+const REKAP_CACHE_TTL_MS = 20000; // 20 detik — cukup supaya gonta-ganti Mingguan/Bulanan/Tahunan
+                                   // atau ganti tanggal filter TIDAK menembak ulang semua key ke
+                                   // Apps Script tiap kali, tapi tetap "segar" kalau user diam sebentar.
 
 /* allEntriesCache sekarang berbentuk { tanggal: { shiftSlug: dataChecklist, ... } } supaya
    Shift 1/2/3 (dan Data Lama) pada tanggal yang sama semua ikut terhitung, tidak saling menimpa. */
-async function fetchAllEntries(){
+async function fetchAllEntries(force){
+  // Pakai cache kalau masih segar (kecuali force=true, mis. tombol "Refresh Data Terbaru").
+  // Ini penting: SEBELUM ada cache ini, tiap kali user pindah Mingguan<->Bulanan<->Tahunan atau
+  // ganti tanggal/bulan/tahun filter, app menembak ULANG satu-per-satu SEMUA key checklist ke
+  // Apps Script (bisa 20-30+ request beruntun) — inilah penyebab utama request menumpuk lalu
+  // sebagian kena 404 (tabrakan concurrency Apps Script akun non-Workspace).
+  if(!force && allEntriesCache && (Date.now() - allEntriesCacheTime) < REKAP_CACHE_TTL_MS){
+    return allEntriesCache;
+  }
   const res = await store.list('checklist:');
   const map = {};
   if(res && res.keys){
     for(const k of res.keys){
+      if(k.includes('::backup')) continue; // key cadangan tidak perlu dihitung di Rekap, dan
+                                            // sebelumnya ikut ke-fetch percuma (2x lipat request)
       const rest = k.replace('checklist:','');
       const parts = rest.split(':');
       const dateStr = parts[0];
@@ -2361,6 +2375,8 @@ async function fetchAllEntries(){
       }catch(e){ /* skip */ }
     }
   }
+  allEntriesCache = map;
+  allEntriesCacheTime = Date.now();
   return map;
 }
 
@@ -2391,19 +2407,28 @@ function buildRekapControls(){
   const c = document.getElementById('rekapControls');
   if(rekapMode === 'week'){
     c.innerHTML = `<div><label>Pilih tanggal (dalam minggu tsb)</label><input type="date" id="rekapWeekDate" value="${todayStr()}"></div>`;
-    document.getElementById('rekapWeekDate').onchange = renderRekap;
+    document.getElementById('rekapWeekDate').onchange = () => renderRekap();
   } else if(rekapMode === 'month'){
     c.innerHTML = `<div><label>Pilih bulan</label><input type="month" id="rekapMonth" value="${todayStr().slice(0,7)}"></div>`;
-    document.getElementById('rekapMonth').onchange = renderRekap;
+    document.getElementById('rekapMonth').onchange = () => renderRekap();
   } else {
     const y = new Date().getFullYear();
     c.innerHTML = `<div><label>Pilih tahun</label><input type="number" id="rekapYear" value="${y}" style="width:100px;"></div>`;
-    document.getElementById('rekapYear').onchange = renderRekap;
+    document.getElementById('rekapYear').onchange = () => renderRekap();
   }
+  // Tombol force-refresh: data Rekap di-cache ~20 detik supaya tidak menembak ulang semua key
+  // tiap ganti mode/tanggal. Tombol ini untuk saat user memang perlu data yang baru saja disimpan.
+  const refreshBtn = document.createElement('button');
+  refreshBtn.type = 'button';
+  refreshBtn.className = 'btn btn-ghost';
+  refreshBtn.style.cssText = 'margin-top:8px;font-size:11.5px;padding:6px 12px;';
+  refreshBtn.textContent = '🔄 Refresh Data Terbaru';
+  refreshBtn.onclick = () => renderRekap(true);
+  c.appendChild(refreshBtn);
 }
 
-async function renderRekap(){
-  allEntriesCache = await fetchAllEntries();
+async function renderRekap(force){
+  allEntriesCache = await fetchAllEntries(force);
   buildRekapControls();
   let periodDates = [];
 
