@@ -767,18 +767,18 @@ const WA_RECIPIENTS = [
    ke sheet ini - supaya Harris bisa audit riwayat pengiriman.
 
    CARA AKTIFKAN (sekali saja, terpisah dari Apps Script DCVA):
-   1. Buka spreadsheet "Fonnte" ini:
-      https://docs.google.com/spreadsheets/d/1umllxyLjiowBFtQLOvl7CMOmr4wGw6y1bWM5Eumw7yw/edit
+   1. Buka spreadsheet log WA ini:
+      https://docs.google.com/spreadsheets/d/1wkP5TDf24wNJTx3JTwz8IF3QIyFh-p7OTfRBVtBDJBo/edit
    2. Extensions > Apps Script, lalu tempel kode dari file "Code_FonnteLog.gs"
       (dibuatkan terpisah, lihat panduan yang diberikan bersama file ini).
    3. Deploy > New deployment > Web app > Execute as: Me > Who has access: Anyone.
    4. Copy URL Web App-nya (format: https://script.google.com/macros/s/XXXX/exec)
-   5. Paste ke FONNTE_LOG_URL di bawah ini, ganti nilai kosong "".
+   5. Paste ke FONNTE_LOG_URL di bawah ini, ganti nilai lama.
 
    CATATAN: kegagalan logging TIDAK PERNAH menggagalkan pengiriman WA yang
    sesungguhnya (fire-and-forget) - log ini murni pencatatan tambahan.
    ============================================================ */
-const FONNTE_LOG_URL = "https://script.google.com/macros/s/AKfycbyJPCjVaNDUnY7Ku9qex1wR7p-RyZxdM0pAL-ONk9mz3MUt4jG13nYQeXWj63uYgLuaUA/exec"; // <-- WAJIB diisi setelah deploy Apps Script log (lihat panduan di atas)
+const FONNTE_LOG_URL = "https://script.google.com/macros/s/AKfycbxPvFT2yqfB07VDLMAoR4OhxxA4fdlv_n800Jf3bdVmjDqHbqXbuXw7VSCnr7i6Zn10MQ/exec"; // <-- sudah diisi, sheet log: 1wkP5TDf24wNJTx3JTwz8IF3QIyFh-p7OTfRBVtBDJBo
 
 function logWaHistory(entry){
   if(!FONNTE_LOG_URL) return; // logging belum dikonfigurasi, lewati diam-diam
