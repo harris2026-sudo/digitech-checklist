@@ -3410,7 +3410,19 @@ async function syncOrderForm(opts){
     try{
       const r = await store.get(ORDERFORM_LASTROW_KEY);
       if(r && r.value) lastRow = parseInt(r.value, 10) || 1;
-    }catch(e){ /* belum pernah sync sebelumnya, mulai dari awal */ }
+    }catch(e){
+      if(e && e.message === 'not found'){
+        // Legit belum pernah sync sebelumnya (pertama kali) - aman mulai dari baris 1.
+      } else {
+        // Error koneksi/backend sesaat (BUKAN "belum pernah sync"). JANGAN reset lastRow
+        // ke 1 di sini - itu akan bikin SEMUA baris lama (termasuk yang sudah lama
+        // diproses & sudah dihapus dari Follow Up) dianggap "baru" lagi, lalu memicu
+        // notifikasi WA ke semua nomor secara keliru. Batalkan siklus sync ini saja,
+        // coba lagi otomatis di interval berikutnya (ORDERFORM_POLL_MS).
+        setOrderformSyncInfo('Menunda cek (gagal ambil status sync sebelumnya, coba lagi otomatis)…');
+        return;
+      }
+    }
 
     const rows = await fetchOrderFormRows();
     const newItems = [];
