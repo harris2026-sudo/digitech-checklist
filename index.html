@@ -3535,7 +3535,7 @@ if(waTestBtnEl){
     waTestBtnEl.disabled = true; waTestBtnEl.textContent = '⏳';
     const results = await sendWhatsAppNotif([{
       pic: 'Test User', vendor: 'Test Mitra',
-      desc: 'Permintaan Tag: Test', note: 'Jumlah RFID: 1 (ini pesan uji coba)'
+      desc: 'Permintaan Tag : Test', note: 'Jumlah RFID: 1 (ini pesan uji coba)'
     }]);
     waTestBtnEl.disabled = false; waTestBtnEl.textContent = '📲';
     const anyFail = !Array.isArray(results) || results.length === 0 || results.some(r => !r.ok);
