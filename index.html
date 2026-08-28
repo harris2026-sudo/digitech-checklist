@@ -56,9 +56,20 @@
   .tab:hover:not(.active){transform:translateY(-2px);background:var(--hilite);box-shadow:0 4px 10px rgba(31,56,100,.15);}
   .tab.active{background:linear-gradient(135deg,var(--navy),var(--accent));color:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(31,56,100,.35);}
   .tab:active{transform:scale(.97);}
+  .tab-locked{opacity:.4;cursor:not-allowed;pointer-events:none;box-shadow:none;}
 
   .view{display:none;}
   .view.active{display:block;}
+
+  .harian-role-tabs{display:flex;gap:6px;margin-bottom:12px;}
+  .harian-role-tab{
+    flex:1;text-align:center;padding:9px 8px;border-radius:8px;background:#fff;color:var(--navy);
+    font-weight:bold;font-size:12px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06);
+    border:2px solid transparent;transition:transform .15s ease,background .15s ease,color .15s ease;
+  }
+  .harian-role-tab:hover:not(.active){background:var(--hilite);}
+  .harian-role-tab.active{background:var(--hilite);color:var(--navy);border-color:var(--accent);}
+  .harian-role-tab:active{transform:scale(.97);}
 
   .controls{display:flex;flex-wrap:wrap;gap:10px;background:#fff;padding:12px;border-radius:10px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08);align-items:center;}
   .controls label{font-size:11px;font-weight:bold;color:var(--navy);display:block;margin-bottom:3px;}
@@ -262,6 +273,21 @@
   .fu-badge.Onprogress{background:var(--yellow-bg);color:var(--yellow-fg);}
   .fu-badge.Hold{background:var(--red-bg);color:var(--red-fg);}
   .fu-badge.Close{background:var(--green-bg);color:var(--green);}
+  .fu-badge.BelumMulai{background:var(--grey-bg);color:var(--grey-fg);}
+  .fu-badge.Selesai{background:var(--green-bg);color:var(--green);}
+  .fu-badge.Overdue{background:var(--red-bg);color:var(--red-fg);}
+  .fu-badge.Kritis{background:var(--red-bg);color:var(--red-fg);}
+  .fu-badge.MenungguVendor{background:var(--yellow-bg);color:var(--yellow-fg);}
+  .fu-badge.Normal{background:var(--blue-bg);color:var(--blue-fg);}
+  .fu-badge.Closed{background:var(--green-bg);color:var(--green);}
+  .fu-card.status-BelumMulai{border-left-color:#9a9a9a;}
+  .fu-card.status-Selesai{border-left-color:var(--green);}
+  .fu-card.status-Overdue{border-left-color:var(--red-fg);}
+  .fu-card.status-Kritis{border-left-color:var(--red-fg);}
+  .fu-card.status-MenungguVendor{border-left-color:#d8b400;}
+  .fu-card.status-Normal{border-left-color:#6a9bcf;}
+  .fu-card.status-Closed{border-left-color:var(--green);}
+  .fu-age-tag{display:inline-block;font-size:9.5px;font-weight:bold;background:var(--hilite);color:var(--navy);border-radius:8px;padding:1px 7px;margin-left:6px;vertical-align:middle;}
   .fu-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
   .fu-actions select{border:1px solid #c7d3e0;border-radius:6px;padding:4px 6px;font-size:11.5px;font-family:Arial;}
   .fu-del{border:1.5px solid #e39aa1;background:var(--red-bg);color:var(--red-fg);border-radius:14px;padding:5px 14px;font-size:11.5px;font-weight:bold;cursor:pointer;font-family:Arial;}
@@ -274,10 +300,12 @@
     box-shadow:0 1px 3px rgba(0,0,0,.06);
   }
   .roster-chip .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-  .roster-sync-banner{font-size:11.5px;padding:7px 12px;border-radius:6px;margin-bottom:12px;font-weight:bold;}
+  .roster-sync-banner{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:default;}
   .roster-sync-banner.syncing{background:var(--hilite);color:var(--navy);}
   .roster-sync-banner.ok{background:var(--green-bg);color:var(--green);}
   .roster-sync-banner.error{background:var(--red-bg);color:var(--red-fg);}
+  .roster-resync-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--green-bg);color:var(--green);border:none;cursor:pointer;}
+  .roster-resync-btn:hover{filter:brightness(0.95);}
   .roster-editable-label{outline:none;border-radius:4px;padding:1px 3px;cursor:text;}
   .roster-editable-label:hover{background:rgba(31,56,100,.06);}
   .roster-editable-label:focus{background:rgba(31,56,100,.12);box-shadow:0 0 0 1.5px rgba(31,56,100,.3);}
@@ -432,6 +460,27 @@
     font-size:10px;font-weight:bold;padding:1px 6px;margin-left:5px;vertical-align:middle;
   }
   .fu-src-tag{display:inline-block;font-size:9.5px;font-weight:bold;background:var(--hilite);color:var(--navy);border-radius:8px;padding:1px 7px;margin-left:6px;vertical-align:middle;}
+
+  /* Icon interaktif pengganti banner merah full-width saat gagal fetch dari server */
+  .conn-err-icon{
+    position:fixed;bottom:20px;right:20px;width:48px;height:48px;border-radius:50%;
+    background:#B3261E;color:#fff;display:flex;align-items:center;justify-content:center;
+    font-size:22px;box-shadow:0 4px 14px rgba(0,0,0,0.35);cursor:pointer;z-index:99999;
+    animation:connErrPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes connErrPulse{
+    0%,100%{box-shadow:0 4px 14px rgba(179,38,30,0.35);}
+    50%{box-shadow:0 4px 20px rgba(179,38,30,0.75);}
+  }
+  .conn-err-popup{
+    position:fixed;bottom:78px;right:20px;max-width:280px;background:#B3261E;color:#fff;
+    padding:12px 14px;border-radius:10px;font-size:12px;font-family:Arial;line-height:1.55;
+    box-shadow:0 6px 18px rgba(0,0,0,0.4);z-index:99999;display:none;
+  }
+  .conn-err-popup b{color:#fff;}
+  .conn-err-popup .cep-close{
+    display:inline-block;margin-top:8px;text-decoration:underline;cursor:pointer;font-weight:bold;
+  }
 </style>
 </head>
 <body>
@@ -449,10 +498,16 @@
     <div class="tab" data-view="followup">🔄 Follow Up<span class="tab-badge" id="fuTabBadge" style="display:none;"></span></div>
     <div class="tab" data-view="rekap">📊 Rekap</div>
     <div class="tab" data-view="roster">🗓️ Roster</div>
+    <div class="tab" data-view="tasklist">📝 Task List</div>
+    <div class="tab" data-view="openpoint">⚠️ Open Point</div>
   </div>
 
   <!-- ================= VIEW: HARIAN ================= -->
   <div class="view active" id="view-harian">
+    <div class="harian-role-tabs" id="harianRoleTabs">
+      <div class="harian-role-tab active" data-role="dfe">Digitech Field Engineer</div>
+      <div class="harian-role-tab" data-role="mfs">Monitoring Field Support</div>
+    </div>
     <div class="controls">
       <div>
         <label>Tanggal</label>
@@ -460,22 +515,11 @@
       </div>
       <div>
         <label>Shift</label>
-        <select id="shiftInput">
-          <option>Shift 1</option>
-          <option>Shift 2</option>
-          <option>Shift 3</option>
-          <option>Non Shift</option>
-        </select>
+        <select id="shiftInput"></select>
       </div>
       <div class="grow">
         <label>PIC</label>
-        <select id="picInput" style="width:100%;">
-          <option>Harris</option>
-          <option>Nico Fahryan Sandy</option>
-          <option>Lukman Gunawan</option>
-          <option>Taufik Wirayudha</option>
-          <option>Adhe Setiawan</option>
-        </select>
+        <select id="picInput" style="width:100%;"></select>
       </div>
       <div style="align-self:flex-end;display:flex;gap:8px;">
         <button class="btn btn-ghost" id="resetBtn">Reset Hari Ini</button>
@@ -600,6 +644,23 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: KELOLA SITE (Open Point) ================= -->
+  <div class="modal-overlay" id="siteModalOverlay">
+    <div class="modal-box">
+      <button type="button" class="modal-close-x" id="siteModalCloseBtn" title="Tutup">✕</button>
+      <h3>📍 Kelola Daftar Site</h3>
+      <div class="vendor-add-row">
+        <input type="text" id="siteModalInput" placeholder="Nama site baru...">
+        <button type="button" class="btn btn-primary" id="siteModalAddBtn">+ Tambah</button>
+      </div>
+      <div id="siteModalMsg" style="display:none;font-size:11.5px;color:var(--red-fg);font-weight:bold;margin-bottom:8px;"></div>
+      <div class="vendor-item-list" id="siteModalList"></div>
+      <div style="text-align:right;margin-top:14px;">
+        <button type="button" class="btn btn-ghost" id="siteModalDoneBtn">Selesai</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= MODAL: DETAIL STATUS REKAP (klik card ringkasan) ================= -->
   <div class="modal-overlay" id="rekapStatusModalOverlay">
     <div class="modal-box" style="max-width:480px;">
@@ -644,23 +705,130 @@
 
   <!-- ================= VIEW: ROSTER ================= -->
   <div class="view" id="view-roster">
-    <div id="rosterSyncBanner" class="roster-sync-banner syncing">Menyinkronkan data roster dari Google Sheets...</div>
     <div class="roster-toolbar">
       <div class="roster-modeselect">
         <button data-mode="today" class="active">Hari Ini</button>
         <button data-mode="week">Minggu Ini</button>
         <button data-mode="month">Bulan Ini</button>
       </div>
-      <button class="btn btn-ghost" id="rosterRefreshBtn">↻ Sinkron Ulang</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div id="rosterSyncBanner" class="roster-sync-banner syncing" title="Menyinkronkan data roster dari Google Sheets..." aria-label="Status sinkron roster">⏳ Syncing</div>
+        <button class="roster-resync-btn" id="rosterRefreshBtn">↻ Re-sync</button>
+      </div>
     </div>
     <div id="rosterContent"></div>
+  </div>
+
+  <!-- ================= VIEW: TASK LIST ================= -->
+  <div class="view" id="view-tasklist">
+    <div class="fu-form">
+      <div class="f-grow">
+        <label>Nama Task</label>
+        <input type="text" id="tlDesc" placeholder="Contoh: Update firmware PRTG shelter Bunati 2">
+      </div>
+      <div class="f-small">
+        <label>PIC</label>
+        <div class="select-with-actions">
+          <select id="tlPic">
+            <option value="">-</option>
+          </select>
+          <button type="button" class="icon-btn icon-btn-add" id="tlPicManageBtn" title="Kelola daftar PIC (tambah/hapus)">⚙️</button>
+        </div>
+      </div>
+      <div class="f-small">
+        <label>Vendor (opsional)</label>
+        <input type="text" id="tlVendor" placeholder="Isi jika task didelegasikan ke vendor">
+      </div>
+      <div class="f-small">
+        <label>Deadline</label>
+        <input type="date" id="tlDeadline">
+      </div>
+      <div class="f-small">
+        <label>Status</label>
+        <select id="tlStatus">
+          <option value="BelumMulai">Belum Mulai</option>
+          <option value="Proses">Proses</option>
+          <option value="Selesai">Selesai</option>
+        </select>
+      </div>
+      <div class="f-grow">
+        <label>Catatan</label>
+        <input type="text" id="tlNote" placeholder="Catatan tambahan (opsional)">
+      </div>
+      <div style="align-self:flex-end;">
+        <button class="btn btn-primary" id="tlAddBtn">+ Tambah Task</button>
+      </div>
+    </div>
+
+    <div class="summary" id="tlSummaryCards"></div>
+
+    <div class="fu-toolbar" id="tlFilterBar"></div>
+    <div id="tlList"></div>
+  </div>
+
+  <!-- ================= VIEW: OPEN POINT ================= -->
+  <div class="view" id="view-openpoint">
+    <div class="fu-form">
+      <div class="f-grow">
+        <label>Deskripsi Isu</label>
+        <input type="text" id="opDesc" placeholder="Contoh: UPS shelter drop out berulang">
+      </div>
+      <div class="f-small">
+        <label>Site</label>
+        <div class="select-with-actions">
+          <select id="opSite">
+            <option value="">-</option>
+          </select>
+          <button type="button" class="icon-btn icon-btn-add" id="opSiteManageBtn" title="Kelola daftar site (tambah/hapus)">⚙️</button>
+        </div>
+      </div>
+      <div class="f-small">
+        <label>Vendor</label>
+        <div class="select-with-actions">
+          <select id="opVendor">
+            <option value="">-</option>
+          </select>
+          <button type="button" class="icon-btn icon-btn-add" id="opVendorManageBtn" title="Kelola daftar vendor (tambah/hapus)">⚙️</button>
+        </div>
+      </div>
+      <div class="f-small">
+        <label>Prioritas / Status</label>
+        <select id="opStatus">
+          <option value="Kritis">Kritis</option>
+          <option value="MenungguVendor">Menunggu Vendor</option>
+          <option value="Normal">Normal</option>
+          <option value="Closed">Closed</option>
+        </select>
+      </div>
+      <div class="f-grow">
+        <label>Catatan</label>
+        <input type="text" id="opNote" placeholder="Catatan tambahan (opsional)">
+      </div>
+      <div style="align-self:flex-end;">
+        <button class="btn btn-primary" id="opAddBtn">+ Tambah Open Point</button>
+      </div>
+    </div>
+
+    <div class="summary" id="opSummaryCards"></div>
+
+    <div class="fu-toolbar" id="opFilterBar"></div>
+    <div id="opList"></div>
   </div>
 
   <footer>Maintain. Monitor. Improve. — Digitech Monitoring Team</footer>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
+/* ---------------- AKSES TERKUNCI VIA URL (?akses=mfs) ----------------
+   Link khusus untuk tim Monitoring Field Support: ...DCVA_v9_TaskList_OpenPoint.html?akses=mfs
+   Ketika parameter ini ada, app otomatis terkunci ke submenu Monitoring Field Support saja di
+   Checklist Harian, dan semua menu utama lain (Follow Up, Rekap, Roster, Task List, Open Point)
+   dinonaktifkan. Link TANPA parameter (atau ?akses=dfe) tetap berfungsi normal seperti biasa. */
+const LOCKED_ROLE = (() => {
+  const p = new URLSearchParams(window.location.search).get('akses');
+  return p === 'mfs' ? 'mfs' : null;
+})();
+
 /* ---- UI motion helper: count-up animation for summary numbers ---- */
 function animateCount(el, to){
   const target = Number(to) || 0;
@@ -692,7 +860,10 @@ function animateCountsIn(container){
    2. Copy URL Web App-nya (format: https://script.google.com/macros/s/XXXX/exec)
    3. Paste ke APPS_SCRIPT_URL di bawah ini, ganti nilai kosong "".
    ============================================================ */
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0EpZSa7vIfM4Cer00gK04wR0bdStSN6lCMk_6rFENdWt3jEWyErCm2r1RtegruGmQ/exec"; // <-- WAJIB DIISI setelah deploy Apps Script
+const APPS_SCRIPT_URL = "https://dcva-backend.meharrisborneo.workers.dev"; // <-- TEST: Cloudflare Worker (paralel, backend production tetap Apps Script)
+// TAMBAHAN KEAMANAN: HARUS SAMA PERSIS dengan Secret "DSO_API_KEY" di Cloudflare
+// (Worker "dcva-backend" > Settings > Variables and Secrets) & dengan HUB utama.
+const DSO_API_KEY = "jNiEM1vRHpdTBnimKIX7b7FBDHiSCcQhl5nhJ4KXq0k";
 
 /* ============================================================
    KONFIGURASI SINKRON ORDER FORM (pengajuan mitra -> Follow Up)
@@ -750,7 +921,7 @@ function orderformCsvUrl(){
 const WA_NOTIF_ENABLED = true; // set false untuk mematikan notifikasi WA tanpa hapus konfigurasi
 const WA_RECIPIENTS = [
   { name: "Harris", phone: "6282158107539" }, // <-- WAJIB diisi nomor WA tujuan (62xxx, tanpa tanda +)
-  { name: "Sony Salubongga", phone: "6281392040909" }, // <-- WAJIB diisi nomor WA tujuan (62xxx, tanpa tanda +)
+  //{ name: "Sony Salubongga", phone: "6281392040909" } // <-- WAJIB diisi nomor WA tujuan (62xxx, tanpa tanda +)
   { name: "Nico", phone: "6282142656289" }, // <-- WAJIB diisi nomor WA tujuan (62xxx, tanpa tanda +)
   { name: "Lukman Gunawan", phone: "6285393750696" }, // <-- WAJIB diisi nomor WA tujuan (62xxx, tanpa tanda +)
   { name: "Adhe", phone: "6282155547898" }, // <-- WAJIB diisi nomor WA tujuan (62xxx, tanpa tanda +)
@@ -778,7 +949,7 @@ const WA_RECIPIENTS = [
    CATATAN: kegagalan logging TIDAK PERNAH menggagalkan pengiriman WA yang
    sesungguhnya (fire-and-forget) - log ini murni pencatatan tambahan.
    ============================================================ */
-const FONNTE_LOG_URL = "https://script.google.com/macros/s/AKfycbxPvFT2yqfB07VDLMAoR4OhxxA4fdlv_n800Jf3bdVmjDqHbqXbuXw7VSCnr7i6Zn10MQ/exec"; // <-- sudah diisi, sheet log: 1wkP5TDf24wNJTx3JTwz8IF3QIyFh-p7OTfRBVtBDJBo
+const FONNTE_LOG_URL = "https://dcva-backend.meharrisborneo.workers.dev"; // <-- TEST: log juga ditangani Worker yang sama (action=log)
 
 function logWaHistory(entry){
   if(!FONNTE_LOG_URL) return; // logging belum dikonfigurasi, lewati diam-diam
@@ -791,7 +962,7 @@ function logWaHistory(entry){
       + `&status=${encodeURIComponent(entry.status || '-')}`
       + `&keterangan=${encodeURIComponent(entry.detail || '')}`
       + `&_t=${Date.now()}`;
-    fetch(url, { cache: 'no-store' }).catch(() => { /* log gagal tidak boleh mengganggu app */ });
+    fetch(url, { cache: 'no-store', headers: { 'X-Dso-Api-Key': DSO_API_KEY } }).catch(() => { /* log gagal tidak boleh mengganggu app */ });
   }catch(e){ /* abaikan, logging bersifat best-effort */ }
 }
 
@@ -819,7 +990,7 @@ async function sendWhatsAppNotif(items){
     }
     try{
       const url = `${APPS_SCRIPT_URL}?action=send_wa&phone=${encodeURIComponent(r.phone)}&message=${encodeURIComponent(message)}&_t=${Date.now()}`;
-      const res = await fetch(url, { cache: 'no-store' });
+      const res = await fetch(url, { cache: 'no-store', headers: { 'X-Dso-Api-Key': DSO_API_KEY } });
       const data = await res.json().catch(() => null);
       if(!data || !data.ok) console.warn(`Gagal kirim notif WA ke ${r.name} (via Fonnte/Apps Script):`, data);
       results.push({ name: r.name, ...(data || { ok: false }) });
@@ -898,7 +1069,7 @@ async function _gsFetchWithRetry(url, maxRetries){
   let lastErr;
   for (let attempt = 0; attempt <= maxRetries; attempt++){
     try{
-      const res = await fetch(url, { cache: 'no-store' });
+      const res = await fetch(url, { cache: 'no-store', headers: { 'X-Dso-Api-Key': DSO_API_KEY } });
       if (res.status === 404 && attempt < maxRetries){
         await _gsSleep(400 * (attempt + 1));
         continue; // kemungkinan besar cuma tabrakan concurrency sesaat, coba lagi
@@ -1047,20 +1218,45 @@ async function gsListValues(prefix=''){
 
 const store = { get: gsGet, set: gsSet, delete: gsDelete, list: gsList, listValues: gsListValues };
 
-/* Banner peringatan kalau GAGAL KONEK ke backend (bukan berarti data kosong).
-   Dulu error ini ditelan diam-diam oleh catch(e){ pakai default } di banyak
-   tempat, sehingga app tampak "semua data hilang" padahal cuma gagal fetch. */
+/* Icon peringatan (bukan banner full-width lagi) kalau GAGAL KONEK ke backend
+   (bukan berarti data kosong). Dulu error ini ditelan diam-diam oleh catch(e){
+   pakai default } di banyak tempat, sehingga app tampak "semua data hilang"
+   padahal cuma gagal fetch. Sekarang ditampilkan sebagai icon ⚠️ bulat mengambang
+   di pojok kanan bawah -- klik untuk lihat detail pesannya, tidak menutupi konten. */
 let _connectionErrorShown = false;
 function showConnectionErrorBanner(key, msg){
-  if (_connectionErrorShown) return;
-  _connectionErrorShown = true;
-  const b = document.createElement('div');
-  b.id = 'connErrorBanner';
-  b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#B3261E;color:#fff;padding:10px 16px;font-size:13px;font-weight:bold;text-align:center;font-family:Arial;cursor:pointer;';
-  b.textContent = '⚠️ Gagal memuat data dari server (' + msg + '). Data yang tampil di layar BUKAN data aslimu — data aslimu di Google Sheets AMAN. Coba refresh / buka lewat GitHub Pages, bukan file lokal. (klik untuk tutup)';
-  b.onclick = () => { b.remove(); _connectionErrorShown = false; };
-  document.body.prepend(b);
   console.error('Connection error on key "' + key + '":', msg);
+  if (_connectionErrorShown){
+    const popup = document.getElementById('connErrorPopup');
+    if(popup) popup.querySelector('.cep-msg').textContent = buildConnErrorMsg(msg);
+    return;
+  }
+  _connectionErrorShown = true;
+
+  const icon = document.createElement('div');
+  icon.id = 'connErrorIcon';
+  icon.className = 'conn-err-icon';
+  icon.title = 'Gagal memuat data dari server — klik untuk detail';
+  icon.textContent = '⚠️';
+
+  const popup = document.createElement('div');
+  popup.id = 'connErrorPopup';
+  popup.className = 'conn-err-popup';
+  popup.innerHTML = '<span class="cep-msg">' + buildConnErrorMsg(msg) + '</span><br><span class="cep-close">Tutup</span>';
+
+  icon.onclick = () => {
+    popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
+  };
+  popup.querySelector('.cep-close').onclick = (e) => {
+    e.stopPropagation();
+    popup.style.display = 'none';
+  };
+
+  document.body.appendChild(icon);
+  document.body.appendChild(popup);
+}
+function buildConnErrorMsg(msg){
+  return '⚠️ Gagal memuat data dari server (' + msg + '). Data yang tampil di layar <b>BUKAN</b> data aslimu — data aslimu di Google Sheets AMAN. Coba refresh / buka lewat GitHub Pages, bukan file lokal.';
 }
 
 /* Banner peringatan kalau backend belum dikonfigurasi */
@@ -1161,7 +1357,7 @@ document.addEventListener('keydown', (e) => {
 /* ---------------- STRUCTURE ---------------- */
 const STATUS_OPTIONS = ["Checked","Follow up","Continue","Not yet","Information","n/a"];
 
-const STRUCTURE = [
+const STRUCTURE_DFE = [
   { name: "Daily Report", tasks: [
     "Upload data report tonase Under/Over ke WAG DSO",
     "Mengupload data report Redzone dari shift sebelumnya ke WAG DSO",
@@ -1216,6 +1412,61 @@ const STRUCTURE = [
   ]},
 ];
 
+const STRUCTURE_MFS = [
+  { name: "Informasi & Sosialisasi WAG", tasks: [
+    "Menginformasikan WAG saat ada Housekeeping / P2H (Pembersihan Area Sensor High Speed dan Low Speed)",
+  ]},
+  { name: "Barikade", tasks: [
+    "Setting Barikade",
+    "Pengecekan kondisi barikade",
+  ]},
+  { name: "Pemantauan & Sosialisasi Radio", tasks: [
+    "Pemantauan di luar office berikut sosialisasi via radio untuk stabil saat melintas baik kiri, lurus, kanan saat melintas",
+    "Reminder checker agar aktif sosialisasi melalui radio untuk kecepatan saat melintas 7-10 km/jam",
+  ]},
+  { name: "Standby WIM", tasks: [
+    "Accept transaksi pending di aplikasi WIM",
+  ]},
+  { name: "Log Book WIM", tasks: [
+    "Pelaporan jalan entrance masuk dan keluar yang rusak, P2H dan aktivitas lainnya ke dalam log book WIM",
+  ]},
+  { name: "Kebersihan Area WIM", tasks: [
+    "Pembersihan area paritan & pavement WIM",
+  ]},
+  { name: "Monitoring WIM & UCan", tasks: [
+    "Monitoring WIM dan UCan. Ketika transaksi tidak update segera menginformasikan ke WAG",
+  ]},
+];
+
+/* ---------------- CHECKLIST HARIAN: ROLE (Digitech Field Engineer / Monitoring Field Support) ----------------
+   Data untuk kedua role dipisah TOTAL: checklist tersimpan, riwayat, kategori/tugas custom, kategori/tugas
+   yang disembunyikan, dan label custom -- masing-masing punya key penyimpanan sendiri (lihat roleSuffix()).
+   Key untuk 'dfe' TIDAK diberi suffix supaya data lama (sebelum fitur ini ada) tetap terbaca. */
+let harianRole = LOCKED_ROLE || 'dfe'; // 'dfe' | 'mfs'
+let STRUCTURE = harianRole === 'mfs' ? STRUCTURE_MFS : STRUCTURE_DFE;
+function roleSuffix(){ return harianRole === 'mfs' ? '_mfs' : ''; }
+
+/* ---------------- PIC & SHIFT: OPSI PER ROLE ---------------- */
+const PIC_OPTIONS_BY_ROLE = {
+  dfe: ["Harris", "Nico Fahryan Sandy", "Lukman Gunawan", "Taufik Wirayudha", "Adhe Setiawan"],
+  mfs: ["Ferdy", "Wahyu", "Muhammad Rizki Alamsyah"],
+};
+const SHIFT_OPTIONS_BY_ROLE = {
+  dfe: ["Shift 1", "Shift 2", "Shift 3", "Non Shift"],
+  mfs: ["Shift 1", "Shift 2"],
+};
+function defaultPicForRole(role){ return PIC_OPTIONS_BY_ROLE[role][0]; }
+function renderHarianControlOptions(){
+  const shiftSel = document.getElementById('shiftInput');
+  const picSel = document.getElementById('picInput');
+  const prevShift = shiftSel.value;
+  const prevPic = picSel.value;
+  shiftSel.innerHTML = SHIFT_OPTIONS_BY_ROLE[harianRole].map(s => `<option>${s}</option>`).join('');
+  picSel.innerHTML = PIC_OPTIONS_BY_ROLE[harianRole].map(p => `<option>${p}</option>`).join('');
+  shiftSel.value = SHIFT_OPTIONS_BY_ROLE[harianRole].includes(prevShift) ? prevShift : SHIFT_OPTIONS_BY_ROLE[harianRole][0];
+  picSel.value = PIC_OPTIONS_BY_ROLE[harianRole].includes(prevPic) ? prevPic : defaultPicForRole(harianRole);
+}
+
 let taskIds = [];
 let taskTextMap = {};
 function rebuildTaskIndex(){
@@ -1249,17 +1500,18 @@ function rebuildTaskIndex(){
 }
 
 /* ---------------- EDITABLE STRUCTURE LABELS ---------------- */
-const STRUCT_LABELS_KEY = 'app:structureLabels';
+function structLabelsKey(){ return 'app:structureLabels' + roleSuffix(); }
 let structureLabels = { categories: {}, tasks: {} };
 let structLabelSaveTimer = null;
 function scheduleStructLabelSave(){ clearTimeout(structLabelSaveTimer); structLabelSaveTimer = setTimeout(saveStructureLabels, 500); }
 async function saveStructureLabels(){
-  try{ await store.set(STRUCT_LABELS_KEY, JSON.stringify(structureLabels)); }
+  try{ await store.set(structLabelsKey(), JSON.stringify(structureLabels)); }
   catch(e){ console.error('Gagal menyimpan label menu', e); }
 }
 async function loadStructureLabels(){
+  structureLabels = { categories: {}, tasks: {} };
   try{
-    const res = await store.get(STRUCT_LABELS_KEY);
+    const res = await store.get(structLabelsKey());
     if(res && res.value) structureLabels = JSON.parse(res.value);
   }catch(e){ /* belum ada, gunakan default */ }
   if(!structureLabels.categories) structureLabels.categories = {};
@@ -1267,16 +1519,16 @@ async function loadStructureLabels(){
 }
 
 /* ---------------- CUSTOM (USER-ADDED) CHECKLIST ITEMS ---------------- */
-const CUSTOM_TASKS_KEY = 'app:customTasks';
+function customTasksKey(){ return 'app:customTasks' + roleSuffix(); }
 let customTasks = {}; // { [categoryIndex]: [{text}, ...] }
 async function loadCustomTasks(){
   try{
-    const res = await store.get(CUSTOM_TASKS_KEY);
+    const res = await store.get(customTasksKey());
     customTasks = (res && res.value) ? JSON.parse(res.value) : {};
   }catch(e){ customTasks = {}; }
 }
 async function saveCustomTasks(){
-  try{ await store.set(CUSTOM_TASKS_KEY, JSON.stringify(customTasks)); }
+  try{ await store.set(customTasksKey(), JSON.stringify(customTasks)); }
   catch(e){ console.error('Gagal menyimpan checklist baru', e); }
 }
 async function addCustomTask(ci, text){
@@ -1298,16 +1550,16 @@ async function deleteCustomTask(ci, xi){
 }
 
 /* ---------------- HIDE/HAPUS DEFAULT TASKS ---------------- */
-const HIDDEN_TASKS_KEY = 'app:hiddenTasks';
+function hiddenTasksKey(){ return 'app:hiddenTasks' + roleSuffix(); }
 let hiddenTasks = {};   // { taskId: true }
 async function loadHiddenState(){
   try{
-    const res = await store.get(HIDDEN_TASKS_KEY);
+    const res = await store.get(hiddenTasksKey());
     hiddenTasks = (res && res.value) ? JSON.parse(res.value) : {};
   }catch(e){ hiddenTasks = {}; }
 }
 async function saveHiddenTasks(){
-  try{ await store.set(HIDDEN_TASKS_KEY, JSON.stringify(hiddenTasks)); }
+  try{ await store.set(hiddenTasksKey(), JSON.stringify(hiddenTasks)); }
   catch(e){ console.error('Gagal menyimpan status hapus checklist', e); }
 }
 async function hideDefaultTask(id){
@@ -1324,16 +1576,16 @@ async function restoreCategoryHiddenTasks(ci){
 }
 
 /* ---------------- CUSTOM (USER-ADDED) CATEGORIES ---------------- */
-const CUSTOM_CATEGORIES_KEY = 'app:customCategories';
+function customCategoriesKey(){ return 'app:customCategories' + roleSuffix(); }
 let customCategories = []; // [{id, name}]
 async function loadCustomCategories(){
   try{
-    const res = await store.get(CUSTOM_CATEGORIES_KEY);
+    const res = await store.get(customCategoriesKey());
     customCategories = (res && res.value) ? JSON.parse(res.value) : [];
   }catch(e){ customCategories = []; }
 }
 async function saveCustomCategories(){
-  try{ await store.set(CUSTOM_CATEGORIES_KEY, JSON.stringify(customCategories)); }
+  try{ await store.set(customCategoriesKey(), JSON.stringify(customCategories)); }
   catch(e){ console.error('Gagal menyimpan kategori baru', e); }
 }
 async function addCustomCategory(name){
@@ -1358,16 +1610,16 @@ async function deleteCustomCategory(id){
 }
 
 /* ---------------- HIDE/HAPUS DEFAULT CATEGORIES ---------------- */
-const HIDDEN_CATEGORIES_KEY = 'app:hiddenCategories';
+function hiddenCategoriesKey(){ return 'app:hiddenCategories' + roleSuffix(); }
 let hiddenCategories = {}; // { ci: true }
 async function loadHiddenCategories(){
   try{
-    const res = await store.get(HIDDEN_CATEGORIES_KEY);
+    const res = await store.get(hiddenCategoriesKey());
     hiddenCategories = (res && res.value) ? JSON.parse(res.value) : {};
   }catch(e){ hiddenCategories = {}; }
 }
 async function saveHiddenCategories(){
-  try{ await store.set(HIDDEN_CATEGORIES_KEY, JSON.stringify(hiddenCategories)); }
+  try{ await store.set(hiddenCategoriesKey(), JSON.stringify(hiddenCategories)); }
   catch(e){ console.error('Gagal menyimpan status hapus kategori', e); }
 }
 async function hideDefaultCategory(ci){
@@ -1387,7 +1639,7 @@ async function restoreHiddenCategories(){
 
 rebuildTaskIndex();
 
-let currentData = { status: {}, notes: {}, shift: "Shift 1", pic: "Harris" };
+let currentData = { status: {}, notes: {}, shift: SHIFT_OPTIONS_BY_ROLE[harianRole][0], pic: defaultPicForRole(harianRole) };
 let saveTimer = null;
 let loadRequestSeq = 0; // guard: cegah response fetch tanggal lama menimpa tampilan tanggal baru
 
@@ -1409,7 +1661,8 @@ function shiftSlug(label){
   return 'nonshift';
 }
 function shiftLabelFromSlug(slug){ return SHIFT_LABEL_BY_SLUG[slug] || slug; }
-function keyFor(dateStr, shiftLabel){ return `checklist:${dateStr}:${shiftSlug(shiftLabel)}`; }
+function checklistPrefix(){ return `checklist${roleSuffix()}:`; }
+function keyFor(dateStr, shiftLabel){ return `${checklistPrefix()}${dateStr}:${shiftSlug(shiftLabel)}`; }
 
 function computeDayStats(data){
   const counts = {}; STATUS_OPTIONS.forEach(s => counts[s] = 0);
@@ -1474,7 +1727,7 @@ let rosterLoaded = false;
 /* ---- Roster HELPER (sheet terpisah dari roster utama, dikelola oleh PT Lintech / Harris) ----
    File Helper dibuat per-bulan (contoh nama file: "07. Roster Helper_Juli_2026.xlsx"), jadi
    ID spreadsheet & gid di bawah HARUS diperbarui setiap kali file bulan baru dibuat oleh Harris/Lintech. */
-const ROSTER_HELPER_SHEET_ID = '1EPmkh20M7ptGBnlWIM73GxkgAtvumhNL';
+const ROSTER_HELPER_SHEET_ID = '1IDGCYdgEzWkoeFTloMCqxWA9Sgn-0aRZ'; // "09. Roster Helper_September_2026.xlsx" - file diganti tiap bulan oleh tim, ID ini perlu di-update manual tiap kali file baru dibuat
 const ROSTER_HELPER_GID = '2120640525';
 const ROSTER_HELPER_PERSONNEL = [
   { code:'Ferdy', shortCode:'FJS', name:'Ferdy Julian Siregar',      color:'#B45309', photo: ROSTER_HELPER_PHOTO_FJS, role:'Monitoring Field Support' },
@@ -1741,7 +1994,7 @@ function loadGoogleChartsOnce(){
 }
 async function fetchRosterSheetByName(sheetName){
   await loadGoogleChartsOnce();
-  const url = `https://docs.google.com/spreadsheets/d/${ROSTER_SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${ROSTER_SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&_t=${Date.now()}`;
   return new Promise((resolve, reject) => {
     let settled = false;
     const timer = setTimeout(() => {
@@ -1825,7 +2078,7 @@ function parseHelperCutiRows(rows){
 }
 async function fetchHelperRosterData(){
   await loadGoogleChartsOnce();
-  const url = `https://docs.google.com/spreadsheets/d/${ROSTER_HELPER_SHEET_ID}/gviz/tq?gid=${ROSTER_HELPER_GID}`;
+  const url = `https://docs.google.com/spreadsheets/d/${ROSTER_HELPER_SHEET_ID}/gviz/tq?gid=${ROSTER_HELPER_GID}&_t=${Date.now()}`;
   return new Promise((resolve, reject) => {
     let settled = false;
     const timer = setTimeout(() => {
@@ -1868,7 +2121,8 @@ async function fetchHelperRosterData(){
 }
 async function loadRoster(){
   const banner = document.getElementById('rosterSyncBanner');
-  banner.textContent = 'Menyinkronkan data roster dari Google Sheets...';
+  banner.textContent = '⏳ Syncing';
+  banner.title = 'Menyinkronkan data roster dari Google Sheets...';
   banner.className = 'roster-sync-banner syncing';
   // Helper di-fetch paralel dari sheet terpisah - kegagalannya tidak boleh menggagalkan roster utama
   const helperPromise = fetchHelperRosterData().catch(err => {
@@ -1908,10 +2162,12 @@ async function loadRoster(){
     rosterDays = merged;
     rosterLastSync = new Date();
     rosterLoaded = true;
-    banner.textContent = '✓ Live-sync dari Google Sheets · terakhir sinkron ' + rosterLastSync.toLocaleTimeString('id-ID');
+    banner.textContent = '✓ Sync-on';
+    banner.title = 'Live-sync dari Google Sheets · terakhir sinkron ' + rosterLastSync.toLocaleTimeString('id-ID');
     banner.className = 'roster-sync-banner ok';
   }catch(e){
-    banner.textContent = e.message;
+    banner.textContent = '✗ Sync-off';
+    banner.title = e.message;
     banner.className = 'roster-sync-banner error';
     showToast('✗ Gagal sinkron roster', 'error');
     const helperResult = await helperPromise;
@@ -1923,8 +2179,44 @@ async function loadRoster(){
   const helperResult = await helperPromise;
   if(helperResult){ rosterHelperDays = helperResult.days; rosterHelperCuti = helperResult.cuti; }
   renderRoster();
+  checkRosterGapAlert();
 }
 function sameDay(a,b){ return a.toDateString() === b.toDateString(); }
+/* ---------------- ALERT: PENGINGAT ISI JADWAL ROSTER H-7 ---------------- */
+/* Supaya kejadian "Roster tampil kosong pas hari-H" (lihat histori: 5 Agustus 2026
+   kosong karena sheet belum diisi) tidak terulang, tiap kali roster berhasil
+   disinkron kita cek: apakah jadwal 7 hari ke depan (H+0 s/d H+6) SUDAH terisi
+   di sheet, baik tim utama maupun tim Helper. Kalau ada tanggal yang masih
+   kosong, tampilkan banner peringatan di ATAS layar (muncul di menu APA SAJA,
+   bukan cuma waktu buka menu Roster) supaya PIC ingat mengisi jadwal dari
+   jauh-jauh hari, bukan pas hari-H sudah kepepet. */
+function checkRosterGapAlert(){
+  const old = document.getElementById('rosterGapBanner');
+  if(old) old.remove();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const missingMain = [];
+  const missingHelper = [];
+  for(let i = 0; i < 7; i++){
+    const d = new Date(today); d.setDate(today.getDate() + i);
+    const mainRec = rosterDays.find(r => sameDay(r.date, d));
+    const mainEmpty = !mainRec || (mainRec.shift1 === '-' && mainRec.shift2 === '-' && mainRec.shift3 === '-');
+    if(mainEmpty) missingMain.push(d);
+    const helperRec = (rosterHelperDays || []).find(r => sameDay(r.date, d));
+    const helperEmpty = !helperRec || (helperRec.shift1 === '-' && helperRec.shift2 === '-');
+    if(helperEmpty) missingHelper.push(d);
+  }
+  if(missingMain.length === 0 && missingHelper.length === 0) return;
+  const fmt = d => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+  const parts = [];
+  if(missingMain.length) parts.push('Tim Utama: ' + missingMain.map(fmt).join(', '));
+  if(missingHelper.length) parts.push('Tim Helper: ' + missingHelper.map(fmt).join(', '));
+  const b = document.createElement('div');
+  b.id = 'rosterGapBanner';
+  b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99997;background:#B8860B;color:#fff;padding:10px 16px;font-size:13px;font-weight:bold;text-align:center;font-family:Arial;cursor:pointer;';
+  b.textContent = '📅 Jadwal Roster 7 hari ke depan belum lengkap — ' + parts.join(' | ') + '. Segera isi di Google Sheets Roster supaya tampilan tidak kosong. (klik untuk tutup sementara)';
+  b.onclick = () => b.remove();
+  document.body.prepend(b);
+}
 function startOfWeekBlockFor(date){
   // cari blok 8-hari (sesuai struktur sheet) yang memuat tanggal ini
   // fallback: pakai 7 hari sebelum s/d sesudah bila tidak ada match blok eksplisit
@@ -2105,9 +2397,14 @@ setInterval(() => {
   loadRoster();
 }, ROSTER_AUTO_SYNC_MS);
 
+// Sinkron & cek jadwal Roster otomatis begitu app dibuka (bukan cuma waktu klik menu Roster),
+// supaya banner pengingat "jadwal H-7 belum diisi" muncul di menu APA SAJA yang sedang dibuka.
+loadRoster();
+
 /* ---------------- TAB SWITCHING ---------------- */
 document.querySelectorAll('.tab').forEach(tab => {
   tab.onclick = () => {
+    if(LOCKED_ROLE && tab.dataset.view !== 'harian') return; // menu lain dinonaktifkan saat akses terkunci
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -2115,8 +2412,15 @@ document.querySelectorAll('.tab').forEach(tab => {
     if(tab.dataset.view === 'rekap') renderRekap();
     if(tab.dataset.view === 'followup'){ renderFollowUp().then(clearOrderFormUnread); }
     if(tab.dataset.view === 'roster') loadRoster();
+    if(tab.dataset.view === 'tasklist') renderTaskList();
+    if(tab.dataset.view === 'openpoint') renderOpenPoint();
   };
 });
+if(LOCKED_ROLE){
+  document.querySelectorAll('.tab').forEach(t => {
+    if(t.dataset.view !== 'harian') t.classList.add('tab-locked');
+  });
+}
 
 /* ---------------- BUILD DAILY UI ---------------- */
 function renderTaskRow(body, id, taskText, displayNum, opts){
@@ -2251,17 +2555,6 @@ function buildCategoryDiv(catKey, cat, isCustom){
     renderTaskRow(body, id, t.text, displayNum, { custom: true, ci: catKey, customIndex: xi });
   });
 
-  if(hiddenCount > 0){
-    const hiddenBar = document.createElement('div');
-    hiddenBar.className = 'hidden-chip-bar';
-    const link = document.createElement('span');
-    link.className = 'restore-link';
-    link.textContent = `↺ Pulihkan ${hiddenCount} checklist yang dihapus di menu ini`;
-    link.onclick = () => restoreCategoryHiddenTasks(catKey);
-    hiddenBar.appendChild(link);
-    body.appendChild(hiddenBar);
-  }
-
   const addWrap = document.createElement('div');
   addWrap.className = 'add-task-wrap';
   const addBtn = document.createElement('button');
@@ -2296,19 +2589,6 @@ function buildUI(){
     if(hiddenCategories[ci]) return;
     container.appendChild(buildCategoryDiv(ci, cat, false));
   });
-
-  const hiddenCatCount = Object.keys(hiddenCategories).length;
-  if(hiddenCatCount > 0){
-    const restoreBar = document.createElement('div');
-    restoreBar.className = 'hidden-chip-bar';
-    restoreBar.style.padding = '0 2px 12px';
-    const link = document.createElement('span');
-    link.className = 'restore-link';
-    link.textContent = `↺ Pulihkan ${hiddenCatCount} kategori yang dihapus`;
-    link.onclick = () => restoreHiddenCategories();
-    restoreBar.appendChild(link);
-    container.appendChild(restoreBar);
-  }
 
   customCategories.forEach(cat => {
     container.appendChild(buildCategoryDiv(cat.id, cat, true));
@@ -2388,24 +2668,24 @@ async function saveCurrent(){
   }
 }
 async function loadForDate(dateStr, shiftLabel){
-  const shift = shiftLabel || document.getElementById('shiftInput').value || "Shift 1";
+  const shift = shiftLabel || document.getElementById('shiftInput').value || SHIFT_OPTIONS_BY_ROLE[harianRole][0];
   const mySeq = ++loadRequestSeq;
   // Langsung kosongkan tampilan dulu (jangan biarkan checklist tanggal/shift lama masih terlihat
   // selagi menunggu fetch tanggal+shift baru selesai) supaya tidak kelihatan seperti "history kebawa".
-  currentData = { status:{}, notes:{}, shift: shift, pic: currentData.pic || "Harris" };
+  currentData = { status:{}, notes:{}, shift: shift, pic: currentData.pic || defaultPicForRole(harianRole) };
   refreshStatusButtons(); refreshNotes(); refreshSummary();
   document.getElementById('saveStatus').textContent = 'Memuat data...';
   document.getElementById('saveStatus').classList.remove('saved','error');
   try{
     const res = await store.get(keyFor(dateStr, shift));
     if(mySeq !== loadRequestSeq) return; // ada request tanggal/shift lain yang lebih baru, abaikan hasil ini
-    currentData = (res && res.value) ? JSON.parse(res.value) : { status:{}, notes:{}, shift:shift, pic:"Harris" };
+    currentData = (res && res.value) ? JSON.parse(res.value) : { status:{}, notes:{}, shift:shift, pic:defaultPicForRole(harianRole) };
   }catch(e){
     if(mySeq !== loadRequestSeq) return;
-    currentData = { status:{}, notes:{}, shift:shift, pic:"Harris" };
+    currentData = { status:{}, notes:{}, shift:shift, pic:defaultPicForRole(harianRole) };
   }
   document.getElementById('shiftInput').value = currentData.shift || shift;
-  document.getElementById('picInput').value = currentData.pic || "Harris";
+  document.getElementById('picInput').value = currentData.pic || defaultPicForRole(harianRole);
   refreshStatusButtons(); refreshNotes(); refreshSummary();
   document.getElementById('saveStatus').textContent = 'Data dimuat';
   document.getElementById('saveStatus').classList.remove('saved','error');
@@ -2413,7 +2693,7 @@ async function loadForDate(dateStr, shiftLabel){
 async function loadHistory(){
   const list = document.getElementById('historyList');
   try{
-    const res = await store.list('checklist:');
+    const res = await store.list(checklistPrefix());
     if(!res || !res.keys || res.keys.length === 0){
       list.innerHTML = '<span style="font-size:11px;color:#999;">Belum ada riwayat tersimpan.</span>';
       return;
@@ -2421,7 +2701,7 @@ async function loadHistory(){
     // Kelompokkan key per tanggal (satu tanggal bisa punya beberapa key shift sekaligus).
     const byDate = {};
     res.keys.forEach(k => {
-      const rest = k.replace('checklist:','');
+      const rest = k.replace(checklistPrefix(),'');
       const parts = rest.split(':');
       const d = parts[0];
       const sk = parts[1] || 'legacy';
@@ -2476,6 +2756,31 @@ document.getElementById('dateInput').onchange = (e) => loadForDate(e.target.valu
 document.getElementById('shiftInput').onchange = () => loadForDate(document.getElementById('dateInput').value || todayStr(), document.getElementById('shiftInput').value);
 document.getElementById('picInput').oninput = scheduleSave;
 document.getElementById('picInput').onchange = scheduleSave;
+
+/* ---------------- CHECKLIST HARIAN: GANTI ROLE (Digitech Field Engineer / Monitoring Field Support) ---------------- */
+async function switchHarianRole(role){
+  if(role === harianRole) return;
+  harianRole = role;
+  STRUCTURE = role === 'mfs' ? STRUCTURE_MFS : STRUCTURE_DFE;
+  document.querySelectorAll('.harian-role-tab').forEach(t => t.classList.toggle('active', t.dataset.role === role));
+  renderHarianControlOptions();
+  await loadStructureLabels();
+  await loadCustomTasks();
+  await loadHiddenState();
+  await loadCustomCategories();
+  await loadHiddenCategories();
+  rebuildTaskIndex();
+  buildUI();
+  await loadForDate(document.getElementById('dateInput').value || todayStr(), document.getElementById('shiftInput').value);
+  loadHistory();
+}
+document.querySelectorAll('.harian-role-tab').forEach(t => {
+  t.onclick = () => { if(!LOCKED_ROLE) switchHarianRole(t.dataset.role); };
+});
+if(LOCKED_ROLE){
+  // Link akses terkunci: tidak ada gunanya menampilkan pilihan submenu, karena cuma satu yang boleh diakses.
+  document.getElementById('harianRoleTabs').style.display = 'none';
+}
 
 /* ================= REKAP ENGINE ================= */
 let rekapMode = 'week';
@@ -2777,6 +3082,16 @@ function dayLabel(dateStr){
   return `${days[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}`;
 }
 
+/* Format tanggal "YYYY-MM-DD" -> "DD-MM-YYYY" untuk tampilan di kartu Follow Up
+   (dipakai bareng deskripsi item, jadi disiapkan dengan spasi di akhir). */
+function formatDateID(dateStr){
+  if(!dateStr) return '';
+  const parts = String(dateStr).split('-');
+  if(parts.length !== 3) return dateStr;
+  const [y, m, d] = parts;
+  return `${d}-${m}-${y}`;
+}
+
 /* Kartu badge S1/S2/S3/NS/Lama di sisi kanan tiap baris hari, menandakan shift mana saja yang
    sudah terisi pada tanggal tsb. */
 function shiftBadgesHtml(dateEntries){
@@ -2949,8 +3264,8 @@ function renderFollowListBody(){
   el.innerHTML = items.map(it => {
     const isManual = it.source === 'manual';
     const descHtml = isManual
-      ? `<span class="fi-date">${it.date}</span>${it.desc}`
-      : `<span class="fi-date">${it.date}</span>${taskTextMap[it.taskId] || it.taskId}`;
+      ? `<span class="fi-date">${formatDateID(it.date)} </span>${it.desc}`
+      : `<span class="fi-date">${formatDateID(it.date)} </span>${taskTextMap[it.taskId] || it.taskId}`;
     const metaHtml = isManual
       ? `<span class="fi-status fu">Follow Up (manual)</span>${it.vendor ? ' · ' + it.vendor : ''}${it.pic ? ' · PIC: ' + it.pic : ''}${it.due ? ' · Due: ' + it.due : ''}`
       : `<span class="fi-status ${it.status==='Not yet'?'ny':'fu'}">${it.status}</span>${it.shiftLabel ? ' · ' + it.shiftLabel : ''}`;
@@ -3229,6 +3544,37 @@ async function saveFollowUp(){
   catch(e){ console.error('Gagal menyimpan follow up', e); }
 }
 
+/* Item checklist harian berstatus "Follow up" / "Not yet" (mis. dari Check Report Harian
+   Helper) ikut ditampilkan juga di tab Follow Up ini -- sebelumnya item semacam ini cuma
+   muncul di Rekap ("Item Follow up / Belum Selesai per periode"). Status Open/Onprogress/
+   Hold/Close-nya dan status "Hapus"-nya dipakai bersama dengan Rekap (rekapFuStatusMap /
+   rekapFuDismissed), jadi mengubah salah satu tempat otomatis tersinkron ke tempat lain. */
+let fuChecklistItems = [];
+async function loadFuChecklistItems(){
+  await fetchAllEntries();
+  await loadRekapFuStatus();
+  const items = [];
+  Object.keys(allEntriesCache || {}).forEach(d => {
+    const dateEntries = allEntriesCache[d];
+    dayShiftEntries(dateEntries).forEach(({shiftKey, label, data}) => {
+      if(!data.status) return;
+      Object.keys(data.status).forEach(taskId => {
+        const s = data.status[taskId];
+        if(s === 'Follow up' || s === 'Not yet'){
+          const key = rekapFuKey(d, taskId, shiftKey);
+          if(rekapFuDismissed[key]) return;
+          items.push({
+            key, date: d, shiftKey, shiftLabel: label, taskId, origStatus: s,
+            note: (data.notes && data.notes[taskId]) || '',
+            trackStatus: rekapFuStatusMap[key] || 'Open'
+          });
+        }
+      });
+    });
+  });
+  fuChecklistItems = items;
+}
+
 document.getElementById('fuAddBtn').onclick = async () => {
   const desc = document.getElementById('fuDesc').value.trim();
   if(!desc){ alert('Deskripsi temuan / task wajib diisi.'); return; }
@@ -3256,13 +3602,15 @@ document.getElementById('fuAddBtn').onclick = async () => {
 function fuSummaryCounts(){
   const counts = {}; FOLLOWUP_STATUS.forEach(s=>counts[s]=0);
   followUpItems.forEach(it => { if(counts[it.status] !== undefined) counts[it.status]++; });
+  fuChecklistItems.forEach(it => { if(counts[it.trackStatus] !== undefined) counts[it.trackStatus]++; });
   return counts;
 }
 
 function renderFuSummary(){
   const counts = fuSummaryCounts();
+  const total = followUpItems.length + fuChecklistItems.length;
   const html = FOLLOWUP_STATUS.map(s => `<div class="card"><div class="num" data-count="${counts[s]}">0</div><div class="lab">${s}</div></div>`).join('')
-    + `<div class="card"><div class="num" data-count="${followUpItems.length}">0</div><div class="lab">Total</div></div>`;
+    + `<div class="card"><div class="num" data-count="${total}">0</div><div class="lab">Total</div></div>`;
   document.getElementById('fuSummaryCards').innerHTML = html;
   animateCountsIn(document.getElementById('fuSummaryCards'));
 }
@@ -3280,54 +3628,416 @@ function renderFuList(){
   const el = document.getElementById('fuList');
   // Item berstatus "Close" otomatis tersimpan tapi disembunyikan dari tampilan "Semua"
   // (tetap ada di data & tetap bisa dibuka lewat filter "Close").
-  const items = followUpFilter === 'All'
+  const manualItems = followUpFilter === 'All'
     ? followUpItems.filter(it => it.status !== 'Close')
     : followUpItems.filter(it => it.status === followUpFilter);
-  if(items.length === 0){
+  const checklistItems = followUpFilter === 'All'
+    ? fuChecklistItems.filter(it => it.trackStatus !== 'Close')
+    : fuChecklistItems.filter(it => it.trackStatus === followUpFilter);
+
+  // Gabung lalu urutkan tanggal terbaru dulu, supaya item manual & item checklist (Follow up/
+  // Not yet dari Check Report Harian) tercampur rapi dalam satu daftar kronologis.
+  const combined = [
+    ...manualItems.map(it => ({ ...it, _kind: 'manual' })),
+    ...checklistItems.map(it => ({ ...it, _kind: 'checklist' }))
+  ].sort((a,b) => b.date.localeCompare(a.date));
+
+  if(combined.length === 0){
     el.innerHTML = '<div class="empty-note">Belum ada item follow up pada filter ini.</div>';
     return;
   }
-  el.innerHTML = items.map(it => `
-    <div class="fu-card status-${it.status}" data-id="${it.id}">
-      <div class="fu-top">
-        <div>
-          <div class="fu-desc">${it.desc}${it.source === 'orderform' ? '<span class="fu-src-tag">📥 Order Form</span>' : ''}</div>
-          <div class="fu-meta">${it.date}${it.vendor ? ' · ' + it.vendor : ''}${it.pic ? ' · PIC: ' + it.pic : ''}${it.due ? ' · Due: ' + it.due : ''}</div>
+  el.innerHTML = combined.map(it => {
+    if(it._kind === 'manual'){
+      return `
+      <div class="fu-card status-${it.status}" data-id="${it.id}" data-kind="manual">
+        <div class="fu-top">
+          <div>
+            <div class="fu-desc">${it.desc}${it.source === 'orderform' ? '<span class="fu-src-tag">📥 Order Form</span>' : ''}</div>
+            <div class="fu-meta">${formatDateID(it.date)}${it.vendor ? ' · ' + it.vendor : ''}${it.pic ? ' · PIC: ' + it.pic : ''}${it.due ? ' · Due: ' + it.due : ''}</div>
+          </div>
+          <span class="fu-badge ${it.status}">${it.status}</span>
         </div>
-        <span class="fu-badge ${it.status}">${it.status}</span>
-      </div>
-      ${it.note ? `<div class="fu-note">${it.note}</div>` : ''}
-      <div class="fu-actions">
-        <select data-id="${it.id}" class="fu-status-select">
-          ${FOLLOWUP_STATUS.map(s => `<option value="${s}" ${s===it.status?'selected':''}>${s}</option>`).join('')}
-        </select>
-        <button class="fu-del" data-id="${it.id}">Hapus</button>
-      </div>
-    </div>
-  `).join('');
+        ${it.note ? `<div class="fu-note">${it.note}</div>` : ''}
+        <div class="fu-actions">
+          <select data-id="${it.id}" data-kind="manual" class="fu-status-select">
+            ${FOLLOWUP_STATUS.map(s => `<option value="${s}" ${s===it.status?'selected':''}>${s}</option>`).join('')}
+          </select>
+          <button class="fu-del" data-id="${it.id}" data-kind="manual">Hapus</button>
+        </div>
+      </div>`;
+    }
+    // Item dari checklist harian (status "Follow up" / "Not yet"), sumber data sama dengan
+    // yang dipakai Rekap ("Item Follow up / Belum Selesai") -- perubahan di sini otomatis
+    // tersinkron ke Rekap juga, begitu pula sebaliknya.
+    const metaHtml = `<span class="fi-status ${it.origStatus==='Not yet'?'ny':'fu'}">${it.origStatus}</span>${it.shiftLabel ? ' · ' + it.shiftLabel : ''}`;
+    return `
+      <div class="fu-card status-${it.trackStatus}" data-key="${it.key}" data-kind="checklist">
+        <div class="fu-top">
+          <div>
+            <div class="fu-desc"><span class="fi-date">${formatDateID(it.date)} </span>${taskTextMap[it.taskId] || it.taskId}</div>
+            <div class="fu-meta">${metaHtml}</div>
+          </div>
+          <span class="fu-badge ${it.trackStatus}">${it.trackStatus}</span>
+        </div>
+        ${it.note ? `<div class="fu-note">${it.note}</div>` : ''}
+        <div class="fu-actions">
+          <select data-key="${it.key}" data-kind="checklist" class="fu-status-select">
+            ${FOLLOWUP_STATUS.map(s => `<option value="${s}" ${s===it.trackStatus?'selected':''}>${s}</option>`).join('')}
+          </select>
+          <button class="fu-del" data-key="${it.key}" data-kind="checklist">Hapus</button>
+        </div>
+      </div>`;
+  }).join('');
 
   el.querySelectorAll('.fu-status-select').forEach(sel => {
     sel.onchange = async () => {
-      const item = followUpItems.find(i => i.id === sel.dataset.id);
-      if(item){ item.status = sel.value; await saveFollowUp(); renderFollowUp(); }
+      if(sel.dataset.kind === 'manual'){
+        const item = followUpItems.find(i => i.id === sel.dataset.id);
+        if(item){ item.status = sel.value; await saveFollowUp(); }
+      } else {
+        rekapFuStatusMap[sel.dataset.key] = sel.value;
+        await saveRekapFuStatus();
+      }
+      renderFollowUp();
     };
   });
   el.querySelectorAll('.fu-del').forEach(btn => {
     btn.onclick = async () => {
-      if(confirm('Hapus item follow up ini?')){
+      if(!confirm('Hapus item follow up ini?')) return;
+      if(btn.dataset.kind === 'manual'){
         followUpItems = followUpItems.filter(i => i.id !== btn.dataset.id);
-        await saveFollowUp(); renderFollowUp();
+        await saveFollowUp();
+      } else {
+        rekapFuDismissed[btn.dataset.key] = true;
+        await saveRekapFuDismissed();
       }
+      renderFollowUp();
     };
   });
 }
 
 async function renderFollowUp(){
   await loadFollowUp();
+  await loadFuChecklistItems();
   renderFuSummary();
   renderFuFilterBar();
   renderFuList();
   updateFollowUpBadge();
+}
+
+/* ==================================================================
+   TASK LIST -- daftar pekerjaan internal Digitech (bukan checklist
+   harian rutin). Berdiri sendiri, key/storage terpisah dari Follow Up.
+   Status "Overdue" dihitung otomatis dari deadline, tidak dipilih manual.
+   ================================================================== */
+const TASKLIST_KEY = 'tasklist:list';
+const TASKLIST_STATUS = ["BelumMulai","Proses","Selesai"];
+const TASKLIST_STATUS_LABEL = { BelumMulai:'Belum Mulai', Proses:'Proses', Selesai:'Selesai', Overdue:'Overdue' };
+let taskListItems = [];
+let taskListFilter = 'All';
+
+const tlPicManager = createManagedList({
+  storageKey: 'followup:pics',
+  defaults: ['Harris','Nico Fahryan Sandy','Lukman Gunawan','Taufik Wirayudha','Adhe Setiawan'],
+  selectId: 'tlPic',
+  manageBtnId: 'tlPicManageBtn',
+  modalOverlayId: 'picModalOverlay',
+  modalInputId: 'picModalInput',
+  modalAddBtnId: 'picModalAddBtn',
+  modalCloseBtnId: 'picModalCloseBtn',
+  modalDoneBtnId: 'picModalDoneBtn',
+  modalListId: 'picModalList',
+  modalMsgId: 'picModalMsg',
+  itemLabel: 'PIC'
+});
+
+function tlId(){ return 'tl' + Date.now() + Math.floor(Math.random()*1000); }
+
+async function loadTaskList(){
+  try{
+    const res = await store.get(TASKLIST_KEY);
+    taskListItems = (res && res.value) ? JSON.parse(res.value) : [];
+  }catch(e){ taskListItems = []; }
+}
+async function saveTaskList(){
+  try{ await store.set(TASKLIST_KEY, JSON.stringify(taskListItems)); }
+  catch(e){ console.error('Gagal menyimpan task list', e); }
+}
+
+/* Task dianggap Overdue kalau deadline sudah lewat & statusnya belum Selesai.
+   Ini status TURUNAN (computed), bukan disimpan manual, supaya selalu akurat
+   tiap kali app dibuka -- tidak perlu diingat-ingat untuk diubah manual. */
+function tlEffectiveStatus(it){
+  if(it.status !== 'Selesai' && it.deadline && it.deadline < todayStr()) return 'Overdue';
+  return it.status;
+}
+
+document.getElementById('tlAddBtn').onclick = async () => {
+  const desc = document.getElementById('tlDesc').value.trim();
+  if(!desc){ alert('Nama task wajib diisi.'); return; }
+  const item = {
+    id: tlId(),
+    date: todayStr(),
+    desc,
+    pic: document.getElementById('tlPic').value.trim(),
+    vendor: document.getElementById('tlVendor').value.trim(),
+    deadline: document.getElementById('tlDeadline').value,
+    status: document.getElementById('tlStatus').value,
+    note: document.getElementById('tlNote').value.trim()
+  };
+  taskListItems.unshift(item);
+  await saveTaskList();
+  document.getElementById('tlDesc').value = '';
+  document.getElementById('tlPic').value = '';
+  document.getElementById('tlVendor').value = '';
+  document.getElementById('tlDeadline').value = '';
+  document.getElementById('tlNote').value = '';
+  document.getElementById('tlStatus').value = 'BelumMulai';
+  renderTaskList();
+};
+
+function tlSummaryCounts(){
+  const counts = { BelumMulai:0, Proses:0, Selesai:0, Overdue:0 };
+  taskListItems.forEach(it => { counts[tlEffectiveStatus(it)]++; });
+  return counts;
+}
+
+function renderTlSummary(){
+  const counts = tlSummaryCounts();
+  const order = ['BelumMulai','Proses','Selesai','Overdue'];
+  const html = order.map(s => `<div class="card"><div class="num" data-count="${counts[s]}">0</div><div class="lab">${TASKLIST_STATUS_LABEL[s]}</div></div>`).join('')
+    + `<div class="card"><div class="num" data-count="${taskListItems.length}">0</div><div class="lab">Total</div></div>`;
+  document.getElementById('tlSummaryCards').innerHTML = html;
+  animateCountsIn(document.getElementById('tlSummaryCards'));
+}
+
+function renderTlFilterBar(){
+  const bar = document.getElementById('tlFilterBar');
+  const opts = ['All', ...TASKLIST_STATUS, 'Overdue'];
+  bar.innerHTML = opts.map(o => `<button class="fu-filter ${taskListFilter===o?'active':''}" data-f="${o}">${o === 'All' ? 'Semua' : TASKLIST_STATUS_LABEL[o]}</button>`).join('');
+  bar.querySelectorAll('.fu-filter').forEach(btn => {
+    btn.onclick = () => { taskListFilter = btn.dataset.f; renderTaskList(); };
+  });
+}
+
+function renderTlList(){
+  const el = document.getElementById('tlList');
+  const items = taskListFilter === 'All'
+    ? taskListItems
+    : taskListItems.filter(it => tlEffectiveStatus(it) === taskListFilter);
+  if(items.length === 0){
+    el.innerHTML = '<div class="empty-note">Belum ada task pada filter ini.</div>';
+    return;
+  }
+  el.innerHTML = items.map(it => {
+    const eff = tlEffectiveStatus(it);
+    return `
+    <div class="fu-card status-${eff}" data-id="${it.id}">
+      <div class="fu-top">
+        <div>
+          <div class="fu-desc">${it.desc}</div>
+          <div class="fu-meta">${formatDateID(it.date)}${it.pic ? ' · PIC: ' + it.pic : ''}${it.vendor ? ' · Vendor: ' + it.vendor : ''}${it.deadline ? ' · Deadline: ' + formatDateID(it.deadline) : ''}</div>
+        </div>
+        <span class="fu-badge ${eff}">${TASKLIST_STATUS_LABEL[eff]}</span>
+      </div>
+      ${it.note ? `<div class="fu-note">${it.note}</div>` : ''}
+      <div class="fu-actions">
+        <select data-id="${it.id}" class="tl-status-select">
+          ${TASKLIST_STATUS.map(s => `<option value="${s}" ${s===it.status?'selected':''}>${TASKLIST_STATUS_LABEL[s]}</option>`).join('')}
+        </select>
+        <button class="fu-del" data-id="${it.id}">Hapus</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.querySelectorAll('.tl-status-select').forEach(sel => {
+    sel.onchange = async () => {
+      const item = taskListItems.find(i => i.id === sel.dataset.id);
+      if(item){ item.status = sel.value; await saveTaskList(); }
+      renderTaskList();
+    };
+  });
+  el.querySelectorAll('.fu-del').forEach(btn => {
+    btn.onclick = async () => {
+      if(!confirm('Hapus task ini?')) return;
+      taskListItems = taskListItems.filter(i => i.id !== btn.dataset.id);
+      await saveTaskList();
+      renderTaskList();
+    };
+  });
+}
+
+async function renderTaskList(){
+  await tlPicManager.load();
+  tlPicManager.renderOptions();
+  await loadTaskList();
+  renderTlSummary();
+  renderTlFilterBar();
+  renderTlList();
+}
+
+/* ==================================================================
+   OPEN POINT -- daftar isu/temuan operasional yang masih terbuka.
+   Berdiri sendiri (key/storage terpisah dari Follow Up), fokus ke
+   umur isu (berapa hari sudah terbuka) supaya prioritas gampang dilihat.
+   ================================================================== */
+const OPENPOINT_KEY = 'openpoint:list';
+const OPENPOINT_STATUS = ["Kritis","MenungguVendor","Normal","Closed"];
+const OPENPOINT_STATUS_LABEL = { Kritis:'Kritis', MenungguVendor:'Menunggu Vendor', Normal:'Normal', Closed:'Closed' };
+let openPointItems = [];
+let openPointFilter = 'All';
+
+const siteManager = createManagedList({
+  storageKey: 'openpoint:sites',
+  defaults: ['Angsana KM 13','Shelter Bunati 2'],
+  selectId: 'opSite',
+  manageBtnId: 'opSiteManageBtn',
+  modalOverlayId: 'siteModalOverlay',
+  modalInputId: 'siteModalInput',
+  modalAddBtnId: 'siteModalAddBtn',
+  modalCloseBtnId: 'siteModalCloseBtn',
+  modalDoneBtnId: 'siteModalDoneBtn',
+  modalListId: 'siteModalList',
+  modalMsgId: 'siteModalMsg',
+  itemLabel: 'site'
+});
+
+const opVendorManager = createManagedList({
+  storageKey: 'followup:vendors',
+  defaults: ['MVM','VGT','Vixmo','BGS','Internal'],
+  selectId: 'opVendor',
+  manageBtnId: 'opVendorManageBtn',
+  modalOverlayId: 'vendorModalOverlay',
+  modalInputId: 'vendorModalInput',
+  modalAddBtnId: 'vendorModalAddBtn',
+  modalCloseBtnId: 'vendorModalCloseBtn',
+  modalDoneBtnId: 'vendorModalDoneBtn',
+  modalListId: 'vendorModalList',
+  modalMsgId: 'vendorModalMsg',
+  itemLabel: 'vendor'
+});
+
+function opId(){ return 'op' + Date.now() + Math.floor(Math.random()*1000); }
+
+async function loadOpenPoint(){
+  try{
+    const res = await store.get(OPENPOINT_KEY);
+    openPointItems = (res && res.value) ? JSON.parse(res.value) : [];
+  }catch(e){ openPointItems = []; }
+}
+async function saveOpenPoint(){
+  try{ await store.set(OPENPOINT_KEY, JSON.stringify(openPointItems)); }
+  catch(e){ console.error('Gagal menyimpan open point', e); }
+}
+
+/* Umur isu dalam hari, dihitung dari tanggal dibuat sampai hari ini --
+   supaya isu yang sudah lama menggantung gampang kelihatan tanpa perlu
+   hitung manual. */
+function opAgeDays(it){
+  const created = new Date(it.date + 'T00:00:00');
+  const now = new Date(todayStr() + 'T00:00:00');
+  const diff = Math.round((now - created) / 86400000);
+  return diff < 0 ? 0 : diff;
+}
+
+document.getElementById('opAddBtn').onclick = async () => {
+  const desc = document.getElementById('opDesc').value.trim();
+  if(!desc){ alert('Deskripsi isu wajib diisi.'); return; }
+  const item = {
+    id: opId(),
+    date: todayStr(),
+    desc,
+    site: document.getElementById('opSite').value,
+    vendor: document.getElementById('opVendor').value,
+    status: document.getElementById('opStatus').value,
+    note: document.getElementById('opNote').value.trim()
+  };
+  openPointItems.unshift(item);
+  await saveOpenPoint();
+  document.getElementById('opDesc').value = '';
+  document.getElementById('opSite').value = '';
+  document.getElementById('opVendor').value = '';
+  document.getElementById('opNote').value = '';
+  document.getElementById('opStatus').value = 'Kritis';
+  renderOpenPoint();
+};
+
+function opSummaryCounts(){
+  const counts = { Kritis:0, MenungguVendor:0, Normal:0, Closed:0 };
+  openPointItems.forEach(it => { if(counts[it.status] !== undefined) counts[it.status]++; });
+  return counts;
+}
+
+function renderOpSummary(){
+  const counts = opSummaryCounts();
+  const html = OPENPOINT_STATUS.map(s => `<div class="card"><div class="num" data-count="${counts[s]}">0</div><div class="lab">${OPENPOINT_STATUS_LABEL[s]}</div></div>`).join('')
+    + `<div class="card"><div class="num" data-count="${openPointItems.length}">0</div><div class="lab">Total</div></div>`;
+  document.getElementById('opSummaryCards').innerHTML = html;
+  animateCountsIn(document.getElementById('opSummaryCards'));
+}
+
+function renderOpFilterBar(){
+  const bar = document.getElementById('opFilterBar');
+  const opts = ['All', ...OPENPOINT_STATUS];
+  bar.innerHTML = opts.map(o => `<button class="fu-filter ${openPointFilter===o?'active':''}" data-f="${o}">${o === 'All' ? 'Semua' : OPENPOINT_STATUS_LABEL[o]}</button>`).join('');
+  bar.querySelectorAll('.fu-filter').forEach(btn => {
+    btn.onclick = () => { openPointFilter = btn.dataset.f; renderOpenPoint(); };
+  });
+}
+
+function renderOpList(){
+  const el = document.getElementById('opList');
+  const items = openPointFilter === 'All'
+    ? openPointItems.filter(it => it.status !== 'Closed')
+    : openPointItems.filter(it => it.status === openPointFilter);
+  if(items.length === 0){
+    el.innerHTML = '<div class="empty-note">Belum ada open point pada filter ini.</div>';
+    return;
+  }
+  el.innerHTML = items.map(it => `
+    <div class="fu-card status-${it.status}" data-id="${it.id}">
+      <div class="fu-top">
+        <div>
+          <div class="fu-desc">${it.desc}<span class="fu-age-tag">${opAgeDays(it)} hari</span></div>
+          <div class="fu-meta">${formatDateID(it.date)}${it.site ? ' · ' + it.site : ''}${it.vendor ? ' · Vendor: ' + it.vendor : ''}</div>
+        </div>
+        <span class="fu-badge ${it.status}">${OPENPOINT_STATUS_LABEL[it.status]}</span>
+      </div>
+      ${it.note ? `<div class="fu-note">${it.note}</div>` : ''}
+      <div class="fu-actions">
+        <select data-id="${it.id}" class="op-status-select">
+          ${OPENPOINT_STATUS.map(s => `<option value="${s}" ${s===it.status?'selected':''}>${OPENPOINT_STATUS_LABEL[s]}</option>`).join('')}
+        </select>
+        <button class="fu-del" data-id="${it.id}">Hapus</button>
+      </div>
+    </div>`).join('');
+
+  el.querySelectorAll('.op-status-select').forEach(sel => {
+    sel.onchange = async () => {
+      const item = openPointItems.find(i => i.id === sel.dataset.id);
+      if(item){ item.status = sel.value; await saveOpenPoint(); }
+      renderOpenPoint();
+    };
+  });
+  el.querySelectorAll('.fu-del').forEach(btn => {
+    btn.onclick = async () => {
+      if(!confirm('Hapus open point ini?')) return;
+      openPointItems = openPointItems.filter(i => i.id !== btn.dataset.id);
+      await saveOpenPoint();
+      renderOpenPoint();
+    };
+  });
+}
+
+async function renderOpenPoint(){
+  await siteManager.load();
+  siteManager.renderOptions();
+  await opVendorManager.load();
+  opVendorManager.renderOptions();
+  await loadOpenPoint();
+  renderOpSummary();
+  renderOpFilterBar();
+  renderOpList();
 }
 
 /* ---------------- SINKRON ORDER FORM -> FOLLOW UP ---------------- */
@@ -3345,9 +4055,46 @@ async function fetchOrderFormRows(){
   }
   const csvText = await res.text();
   if(!csvText || !csvText.trim()) return [];
-  const parsed = Papa.parse(csvText.trim(), { skipEmptyLines: false });
-  const allRows = parsed.data || [];
+  const allRows = parseCsvSimple(csvText.trim());
   return allRows.slice(1); // baris 0 = header, dibuang
+}
+
+/* Parser CSV kecil buatan sendiri (pengganti library eksternal PapaParse).
+   Dibuat supaya fitur "Cek Pengajuan Baru (Order Form)" TIDAK bergantung pada
+   koneksi ke CDN luar (cdnjs.cloudflare.com) — kalau CDN itu diblokir/lambat di
+   jaringan kantor, fitur ini tetap jalan normal karena tidak butuh internet
+   tambahan selain fetch CSV Google Sheets itu sendiri. Mendukung field berisi
+   koma/petik dua/baris baru di dalam tanda kutip ("...") sesuai standar CSV. */
+function parseCsvSimple(text){
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i + 1] === '"'){ field += '"'; i++; }
+        else { inQuotes = false; }
+      } else {
+        field += c;
+      }
+    } else if(c === '"'){
+      inQuotes = true;
+    } else if(c === ','){
+      row.push(field); field = '';
+    } else if(c === '\r'){
+      // dilewati, tunggu \n
+    } else if(c === '\n'){
+      row.push(field); field = '';
+      rows.push(row); row = [];
+    } else {
+      field += c;
+    }
+  }
+  row.push(field);
+  rows.push(row);
+  return rows;
 }
 
 function mapOrderFormStatus(s){
@@ -3373,7 +4120,7 @@ function orderRowToFollowUp(row, rowNum){
 
   // Sesuai permintaan: tampilan Follow Up dari Order Form cukup 4 data ini saja
   // (Nama Requestor, Nama Mitra, Permintaan Tag, Jumlah RFID).
-  const desc = `Permintaan Tag : ${permintaan || '-'}`;
+  const desc = `Permintaan Tag: ${permintaan || '-'}`;
 
   return {
     id: 'ordform_row' + rowNum,
@@ -3426,9 +4173,19 @@ async function syncOrderForm(opts){
 
     const rows = await fetchOrderFormRows();
     const newItems = [];
+    // lastDataRowNum = baris TERAKHIR yang benar-benar berisi data (bukan sekadar baris
+    // terakhir yang dikembalikan Google Sheets). PENTING: Google Sheets kadang ikut
+    // mengembalikan baris-baris KOSONG di bawah data asli lewat endpoint gviz/CSV (mis.
+    // kalau pernah ada format/warna yang menyebar ke banyak baris di bawah data). Kalau
+    // "baris terakhir" dihitung dari rows.length begitu saja (termasuk baris kosong itu),
+    // orderform:lastrow di backend akan ter-set kelewat tinggi, sehingga SEMUA pengajuan
+    // RFID baru berikutnya (yang row number-nya masih di bawah angka palsu itu) dianggap
+    // "sudah pernah diproses" dan TIDAK PERNAH muncul lagi di Follow Up / memicu notif WA.
+    let lastDataRowNum = lastRow;
     rows.forEach((row, idx) => {
       const rowNum = idx + 2; // range dimulai dari A2
       const hasData = row && row.some(c => c !== undefined && c !== '');
+      if(hasData && rowNum > lastDataRowNum) lastDataRowNum = rowNum;
       if(rowNum > lastRow && hasData){
         newItems.push(orderRowToFollowUp(row, rowNum));
       }
@@ -3448,7 +4205,9 @@ async function syncOrderForm(opts){
       }
     }
 
-    const newLastRow = 1 + rows.length;
+    // Pakai baris data terakhir yang SUNGGUHAN (lastDataRowNum), BUKAN 1 + rows.length lagi
+    // (lihat catatan panjang di atas kenapa itu berbahaya).
+    const newLastRow = lastDataRowNum;
     if(newLastRow > lastRow){ await store.set(ORDERFORM_LASTROW_KEY, String(newLastRow)); }
 
     const now = new Date();
@@ -3535,7 +4294,7 @@ if(waTestBtnEl){
     waTestBtnEl.disabled = true; waTestBtnEl.textContent = '⏳';
     const results = await sendWhatsAppNotif([{
       pic: 'Test User', vendor: 'Test Mitra',
-      desc: 'Permintaan Tag : Test', note: 'Jumlah RFID: 1 (ini pesan uji coba)'
+      desc: 'Permintaan Tag: Test', note: 'Jumlah RFID: 1 (ini pesan uji coba)'
     }]);
     waTestBtnEl.disabled = false; waTestBtnEl.textContent = '📲';
     const anyFail = !Array.isArray(results) || results.length === 0 || results.some(r => !r.ok);
@@ -3554,6 +4313,7 @@ if(rekapFuDebugToggleBtn){
 }
 
 document.getElementById('dateInput').value = todayStr();
+renderHarianControlOptions();
 (async () => {
   await loadStructureLabels();
   await loadCustomTasks();
